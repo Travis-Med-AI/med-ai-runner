@@ -9,8 +9,10 @@ import sys
 def evaluate(input: torch.tensor):
     net = Net()
     net.float()
+    net.cuda()
+
     with torch.no_grad():
-        out = net(input.float())
+        out = net(input.float().cuda())
     
     return out
 

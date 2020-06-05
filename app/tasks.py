@@ -6,17 +6,26 @@ from celery import shared_task
 
 
 @app.task
-def evaluate_dicom(self, model_image, dicom_path):
-    # client = docker.from_env()
+def evaluate_dicom(model_image, dicom_path):
+    print('start')
 
-    # model_image_name = 'example'
+    client = docker.from_env()
 
-    # filepath = f'{os.path.dirname(os.path.abspath(__file__))}/example.dcm'
-    # container_path = '/opt/example.dcm'
+    model_image_name = 'example'
+
+    filepath = f'{os.path.dirname(os.path.abspath(__file__))}/example.dcm'
+
+    print(filepath)
+    container_path = '/opt/example.dcm'
 
     # mounts = [docker.types.Mount(container_path, filepath, type="bind" )]
 
     # stdout = client.containers.run(image=model_image_name, mounts=mounts, detach=False)
+
+    # output = open('output.txt', 'w')
+    # output.write(stdout)
+    # output.close()
+
     # print(stdout)
 
-    print('running tasks')
+    # print('done')
