@@ -14,5 +14,4 @@ A framework for running your deep learning models in practice
   
 ### Container Format
 - Required members (exist as python scripts)
-  - preprocess.py
-  - evaluate.py
+  - main.py - accepts path to dcm

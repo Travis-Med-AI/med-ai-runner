@@ -1,0 +1,25 @@
+version: '3'
+services: 
+    worker:
+        build: .
+        command: celery -A runner worker -l info
+        depends_on:
+        - beat
+        - rabbitmq
+        restart: 'no'
+        working_dir: /app
+        volumes:
+        - ./app:/app
+
+    beat:
+        build: .
+        command: celery -A runner beat -l info
+        depends_on:
+        - rabbitmq
+        restart: 'no'
+        working_dir: /app
+        volumes:
+        - ./app:/app
+
+    rabbitmq:
+        image: rabbitmq:3.7.8
