@@ -8,10 +8,10 @@ app = Celery('runner')
 app.config_from_object(settings)
 # app.autodiscover_tasks(['evaluate_dicom'])
 
-@app.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
+# @app.on_after_configure.connect
+# def setup_periodic_tasks(sender, **kwargs):
     # Calls every 10 seconds.
-    sender.add_periodic_task(10.0, evaluate_dicom.s('example', '/home/travis/dev/med_ai_runner/example.dcm'), name='add every 10')
+    # sender.add_periodic_task(60.0, evaluate_dicom.s('example', '/home/travis/dev/med_ai_runner/example.dcm'), name='add every 10')
 
 @app.task
 def evaluate_dicom(model_image, dicom_path):

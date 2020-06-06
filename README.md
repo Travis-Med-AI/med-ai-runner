@@ -47,5 +47,9 @@ docker run --runtime=nvidia nvidia/cuda:10.0-base nvidia-smi
   - description: Description of what the model does
   
 ### Container Format
-- Required members (exist as python scripts)
-  - main.py - accepts path to dcm
+- Environment Variables
+  - ```FILENAME```: the name of the dicom file to be read
+  - ```FILEDIR```: the name of the directory to be read
+- CMD of the docker container:
+  - If single dicom input: ```CMD [your python script] ${FILENAME}```
+  - If dicom directory input: ```CMD [your python script] ${FILEDIR}```

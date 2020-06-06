@@ -1,7 +1,8 @@
 FROM pytorch/pytorch
 
 # Add Metadata
-LABEL input="dicom"
+LABEL input="dicom" 
+LABEL output_type=""
 LABEL output="[1,4]"
 LABEL name="Example"
 LABEL description="An example model"

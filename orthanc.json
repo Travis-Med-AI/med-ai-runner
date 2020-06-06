@@ -1,0 +1,10 @@
+{
+    "Name" : "Orthanc in Docker",
+    "RemoteAccessAllowed" : true,
+    "AuthenticationEnabled": false,
+    "DicomAet": "AI",
+    "RegisteredUsers" : {
+        "test" : "test123"
+    }
+}
+  

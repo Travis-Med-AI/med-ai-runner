@@ -4,7 +4,6 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-celery = "*"
 docker = "*"
 pydicom = "*"
 future = "*"
@@ -14,3 +13,6 @@ pylint = "*"
 
 [requires]
 python_version = "3.8"
+
+[packages.celery]
+extras = [ "redis",]
