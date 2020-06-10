@@ -10,7 +10,19 @@ services:
         volumes:
         - ./app:/app
         - /var/run/docker.sock:/var/run/docker.sock
+        - images:/tmp
         privileged: true
+    beat:
+        build:
+            context: .
+            dockerfile: ./dockerfiles/Dockerfile
+        command: celery -A runner beat -l info
+        restart: on-failure
+        working_dir: /app
+        volumes:
+        - ./app:/app
+        - images:/tmp
+        - /var/run/docker.sock:/var/run/docker.sock
 
     orthanc:
         image: jodogne/orthanc-plugins:1.7.1
@@ -26,6 +38,9 @@ networks:
         external:
             name: ai-network
 
+volumes: 
+    images:
+        name: ai-images
 
 secrets:
     orthanc.json:

@@ -7,6 +7,9 @@ name = "pypi"
 docker = "*"
 pydicom = "*"
 future = "*"
+redis = "*"
+numpy = "*"
+psycopg2 = "*"
 
 [dev-packages]
 pylint = "*"
