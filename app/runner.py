@@ -12,10 +12,9 @@ import traceback
 app = Celery('runner')
 app.config_from_object(settings)
 
-@app.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
-    # Calls test('hello') every 10 seconds.
-    sender.add_periodic_task(30, run_jobs.s(), name='check for jobs every 30 sec')
+# @app.on_after_configure.connect
+# def setup_periodic_tasks(sender, **kwargs):
+    # sender.add_periodic_task(30, run_jobs.s(), name='check for jobs every 30 sec')
 
 
 @app.task
