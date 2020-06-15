@@ -63,6 +63,7 @@ def query(sql_query: str):
 
     pg_cur.execute(sql_query)
 
+
     pg_conn.commit()
     pg_cur.close()
     pg_conn.close()

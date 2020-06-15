@@ -16,6 +16,7 @@ app.config_from_object(settings)
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(30, run_jobs.s(), name='check for jobs every 30 sec')
+
     sender.add_periodic_task(30, classify_studies.s(), name='check for new studies every 30 sec')
 
 
@@ -28,7 +29,7 @@ def run_jobs():
     jobs = db_queries.get_eval_jobs()
     for job in jobs:
         try:
-            evaluate_studies.delay(job['modelId'])
+            evaluate_studies.delay(job['modelId'], 10)
         except Exception as e:
             print('job', job['id'], 'failed')
             print(e)
@@ -41,20 +42,24 @@ def classify_studies():
 
     db_orthanc_ids = map(lambda x: x['orthancStudyId'], db_queries.get_studies())
 
-    orthanc_studies = [study for study in orthanc_studies if study not in db_orthanc_ids]
+    filtered_studies = list(set(orthanc_studies) - set(db_orthanc_ids))
 
     classifier_models = db_queries.get_classifier_models()
 
     # TODO: make this work for every classifier model
     model = classifier_models[0]
 
-    for study in orthanc_studies:
-        classify_study(model['id'], study)
+    print(f'retreived {len(filtered_studies)} studies from orthanc')
+
+    db_queries.insert_studies(filtered_studies)
+
+    for study in filtered_studies:
+        classify_study.delay(model['id'], study)
 
 
 
 @app.task
-def evaluate_studies(model_id):
+def evaluate_studies(model_id, batch_size):
     """
     Gets studies from orthanc and evaluates all of the applicable studies using a given model
     
@@ -62,6 +67,10 @@ def evaluate_studies(model_id):
     """
     # get all studies from orthanc
     studies = db_queries.get_studies_for_model(model_id)
+
+    studies = studies[:batch_size]
+
+    print(f'received {len(studies)} studies to evaluate')
     
     # get the appropriate evaluating model
     model = db_queries.get_model(model_id)
@@ -119,6 +128,7 @@ def classify_study(classifier_id:int, orthanc_id:int):
     :param orthanc_id: the study id of the study coming from orthanc
     """
     try:
+
         # get the classifier model information from the db
         classifier_model = db_queries.get_model(classifier_id)
 
@@ -127,9 +137,10 @@ def classify_study(classifier_id:int, orthanc_id:int):
 
         # evaluate the study using classifier model
         study_type = utils.evaluate(classifier_model['image'], study_path, f'{orthanc_id}-study', stringOutput=True)
-
+        print(f'finished evaluating{orthanc_id}')
         # save a study to the database
         db_queries.save_study_type(orthanc_id, study_type)
+        print(f'saved {orthanc_id}')
 
     except:
         # catch errors and print output

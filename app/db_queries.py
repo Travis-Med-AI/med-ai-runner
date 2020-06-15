@@ -103,6 +103,29 @@ def get_model(model_id):
     return model
 
 
+def insert_studies(orthanc_ids: list):
+    """
+    Saves a study to the database with it accompanying type
+
+    :param orthanc_id: the study id from orthanc
+    :param study_type: the type of the study (e.g. AP_CXR)
+
+    :return: the inserted study as dict
+    """
+    if len(orthanc_ids) == 0:
+        return
+    orthanc_ids = map(lambda x: f'(\'{x}\')', orthanc_ids)
+
+    sql = f'''
+    INSERT INTO study ("orthancStudyId")
+    VALUES {','.join(orthanc_ids)}
+    RETURNING id;
+    '''
+
+    study = query_and_fetchall(sql)
+
+    return study
+
 
 def save_study_type(orthanc_id: str, study_type: str):
     """
@@ -115,14 +138,12 @@ def save_study_type(orthanc_id: str, study_type: str):
     """
 
     sql = f'''
-    INSERT INTO study ("orthancStudyId", type)
-    VALUES ('{orthanc_id}', '{study_type}')
-    RETURNING id;
+    UPDATE study
+    SET type='{study_type}'
+    WHERE "orthancStudyId"='{orthanc_id}'
     '''
 
-    study = query_and_fetchall(sql)
-
-    return study
+    query(sql)
 
 
 def get_studies_for_model(model_id):
