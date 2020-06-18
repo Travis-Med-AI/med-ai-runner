@@ -17,7 +17,7 @@ app.config_from_object(settings)
 def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(30, run_jobs.s(), name='check for jobs every 30 sec')
 
-    sender.add_periodic_task(30, classify_studies.s(), name='check for new studies every 30 sec')
+    sender.add_periodic_task(30, classify_studies.s(10), name='check for new studies every 30 sec')
 
 
 @app.task
@@ -37,12 +37,14 @@ def run_jobs():
 
 
 @app.task
-def classify_studies():
+def classify_studies(batch_size):
     orthanc_studies = utils.get_orthanc_studies()
 
     db_orthanc_ids = map(lambda x: x['orthancStudyId'], db_queries.get_studies())
 
     filtered_studies = list(set(orthanc_studies) - set(db_orthanc_ids))
+
+    filtered_studies = filtered_studies[:batch_size]
 
     classifier_models = db_queries.get_classifier_models()
 
@@ -124,7 +126,7 @@ def classify_study(classifier_id:int, orthanc_id:int):
     """
     Classifies a study coming from orthanc and saves db entry for the study
 
-    :param classifier_id: the id of the db entry for the classifying model
+    :param classifier_id: the Nid of the db entry for the classifying model
     :param orthanc_id: the study id of the study coming from orthanc
     """
     try:
