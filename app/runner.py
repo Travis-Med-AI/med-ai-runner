@@ -9,15 +9,19 @@ import requests
 import utils
 import db_queries
 import traceback
+import uuid
 
 app = Celery('runner')
 app.config_from_object(settings)
 
+
 @app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
+    db_queries.remove_orphan_evals()
+    db_queries.remove_orphan_studies()
+    
     sender.add_periodic_task(30, run_jobs.s(), name='check for jobs every 30 sec')
-
-    sender.add_periodic_task(30, classify_studies.s(10), name='check for new studies every 30 sec')
+    sender.add_periodic_task(30, classify_studies.s(15), name='check for new studies every 30 sec')
 
 
 @app.task
@@ -29,10 +33,8 @@ def run_jobs():
     jobs = db_queries.get_eval_jobs()
     for job in jobs:
         try:
-            evaluate_studies.delay(job['modelId'], 10)
-        except Exception as e:
-            print('job', job['id'], 'failed')
-            print(e)
+            evaluate_studies.delay(job['modelId'], 15)
+        except:
             traceback.print_exc()
 
 
@@ -46,18 +48,12 @@ def classify_studies(batch_size):
 
     filtered_studies = filtered_studies[:batch_size]
 
-    classifier_models = db_queries.get_classifier_models()
-
-    # TODO: make this work for every classifier model
-    model = classifier_models[0]
-
-    print(f'retreived {len(filtered_studies)} studies from orthanc')
+    classifier_model = db_queries.get_classifier_model()
 
     db_queries.insert_studies(filtered_studies)
 
-    for study in filtered_studies:
-        classify_study.delay(model['id'], study)
-
+    if len(filtered_studies) > 0:
+        classify_study.delay(classifier_model, filtered_studies)
 
 
 @app.task
@@ -69,36 +65,44 @@ def evaluate_studies(model_id, batch_size):
     """
     # get all studies from orthanc
     studies = db_queries.get_studies_for_model(model_id)
+    failed_evals = db_queries.get_failed_eval_ids(model_id)
 
     studies = studies[:batch_size]
 
-    print(f'received {len(studies)} studies to evaluate')
+    if len(studies) < 1:
+        return
     
     # get the appropriate evaluating model
     model = db_queries.get_model(model_id)
 
     # add db entries for the upcoming study evals
     eval_ids = db_queries.start_study_evaluations(studies, model['id'])
+    db_queries.restart_failed_evals(failed_evals, model['id'])
 
-    for study, eval_id in zip(studies, eval_ids):
-        try:
-            # download study from orthanc
-            study_path = utils.get_study(study['orthancStudyId'])
+    eval_ids = eval_ids + failed_evals
+    try:
+        study_paths = [study['orthancStudyId'] for study in studies]
 
-            # evaluate study and write result to db
-            out = utils.evaluate(model['image'], study_path, study['orthancStudyId'])
-            db_queries.update_db(out, eval_id)
-        except:
-            # catch errors and print output
-            print('evaluation for study', study['orthancStudyId'], 'failed')
-            traceback.print_exc()
+        results, images = utils.evaluate(model['image'], study_paths, str(uuid.uuid4()), bool(model['hasImageOutput']))
+        print(results)
 
-            # update eval status to FAILED
+        for result, image, eval_id in zip(results, images, eval_ids):
+            try:
+                db_queries.update_db(result, image, eval_id)
+            except:
+                # catch errors and print output
+                traceback.print_exc()
+
+                # update eval status to FAILED
+                db_queries.fail_eval(eval_id)
+    except:
+        traceback.print_exc()
+        for eval_id in eval_ids:
             db_queries.fail_eval(eval_id)
 
 
 @app.task
-def evaluate_dicom(model_image: str, dicom_path: str, eval_id: int):
+def evaluate_dicom(model_image: str, orthanc_id: str, eval_id: int):
     """
     takes in a image, path to a dicom and a eval id from the db and evaluates the dicom using the image
 
@@ -108,13 +112,15 @@ def evaluate_dicom(model_image: str, dicom_path: str, eval_id: int):
 
     """
     try:
+        study_path, patient_id = utils.get_study(orthanc_id)
+
+        print('here is the study path', study_path)
+
         # evaluate study and write result to db
-        output = utils.evaluate(model_image, dicom_path, eval_id)
-        db_queries.update_db(output, eval_id)
-    except Exception as e:
+        output = utils.evaluate(model_image, [study_path], eval_id)
+        db_queries.update_db(output[0], None, eval_id)
+    except:
         # catch errors and print output
-        print('evaluation', eval_id, 'failed')
-        print(e)
         traceback.print_exc()
 
         # update eval status to FAILED
@@ -122,7 +128,7 @@ def evaluate_dicom(model_image: str, dicom_path: str, eval_id: int):
 
 
 @app.task
-def classify_study(classifier_id:int, orthanc_id:int):
+def classify_study(classifier_id:int, orthanc_ids):
     """
     Classifies a study coming from orthanc and saves db entry for the study
 
@@ -134,17 +140,28 @@ def classify_study(classifier_id:int, orthanc_id:int):
         # get the classifier model information from the db
         classifier_model = db_queries.get_model(classifier_id)
 
-        # download study from orthanc to disk
-        study_path = utils.get_study(orthanc_id)
+        study_paths = []
+
+        for orthanc_id in orthanc_ids:
+            # download study from orthanc to disk
+            study_path, patient_id = utils.get_study(orthanc_id)
+
+            # save the patient id
+            db_queries.save_patient_id(patient_id, orthanc_id)
+
+            study_paths.append(study_path)
 
         # evaluate the study using classifier model
-        study_type = utils.evaluate(classifier_model['image'], study_path, f'{orthanc_id}-study', stringOutput=True)
-        print(f'finished evaluating{orthanc_id}')
+        study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
+
         # save a study to the database
-        db_queries.save_study_type(orthanc_id, study_type)
-        print(f'saved {orthanc_id}')
+        for orthanc_id, study_type in zip(orthanc_ids, study_types):
+            db_queries.save_study_type(orthanc_id, study_type)
+            print(f'saved {orthanc_id}')
 
     except:
         # catch errors and print output
-        print('classification of study', orthanc_id, 'failed')
+        print('classification of study', orthanc_ids, 'failed')
         traceback.print_exc()
+        for orthanc_id in orthanc_ids:
+            db_queries.remove_study_by_id(orthanc_id)

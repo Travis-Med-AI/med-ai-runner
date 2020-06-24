@@ -11,22 +11,24 @@ import time
 from functools import reduce
 import requests
 from zipfile import ZipFile
+import db_queries
 
 
-def fromRedis(r,n):
-   """
-   Retrieve Numpy array from Redis key
+def getResult(r, study_id):
+    """
+    Retrieve Numpy array from Redis key
 
-   :param r: redis connection
-   :param n: redis key for the save array
+    :param r: redis connection
+    :param n: redis key for the save array
 
-   :return: the numpy array reteived from redis
-   """
-   encoded = r.get(n)
-   h, w = struct.unpack('>II',encoded[:8])
-   a = np.frombuffer(encoded, dtype=np.float, offset=8).reshape(h,w)
+    :return: the numpy array reteived from redis
+    """
+    path = r.get(study_id)
+    return np.load(f'/tmp/{path}')
 
-   return a
+
+def get_image_results(orthanc_ids):
+    return [f'/tmp/{orthanc_id}/output.jpg' for orthanc_id in orthanc_ids]
 
 
 def get_string_from_redis(r, key):
@@ -47,8 +49,11 @@ def get_study(orthanc_id):
     :param orthanc_id: study id from orthanc
     """
     # get study zip from orthanc
-    url = f'http://orthanc:8042/studies/{orthanc_id}/media'
-    study = requests.get(url)
+
+    study_info_url = f'http://orthanc:8042/studies/{orthanc_id}'
+    media_url = f'http://orthanc:8042/studies/{orthanc_id}/media'
+    study = requests.get(media_url)
+    study_info = requests.get(study_info_url).json()
 
     # define download path for study
     out_path = f'/tmp/{orthanc_id}'
@@ -61,17 +66,13 @@ def get_study(orthanc_id):
     with ZipFile(file_path, 'r') as zipObj:
         zipObj.extractall(out_path)
     
-    return orthanc_id
+    return orthanc_id, study_info.get('PatientMainDicomTags', {} ).get('PatientID')
 
 
-
-
-def evaluate(model_image, dicom_path, id, stringOutput=False):
+def evaluate(model_image, dicom_paths, eval_id, imgOutput=False):
     # get redis client
-    if stringOutput:
-        r = redis.StrictRedis(host='redis', port=6379, db=0, decode_responses=True)
-    else:
-        r = redis.Redis(host='redis', port=6379, db=0)
+    r = redis.StrictRedis(host='redis', port=6379, db=0, decode_responses=True)
+    print('eval info', model_image, dicom_paths, eval_id)
 
     # get docker client
     client = docker.from_env()
@@ -81,20 +82,20 @@ def evaluate(model_image, dicom_path, id, stringOutput=False):
     volumes = {
         'ai-images': {'bind': '/opt/images', 'mode': 'rw'}
     }
+
+    filenames = ','.join(dicom_paths)
     
     # send eval to docker daemon and start container
     # set env variables
     # set runtime to nvidia so that it has a connection to the cuda runtime on host
     stdout = client.containers.run(image=model_image, 
                                    detach=False, 
-                                   environment={'FILENAME': dicom_path, 'ID': id}, 
+                                   environment={'FILENAMES': filenames, 'ID': eval_id, 'SAVE_IMAGE': imgOutput}, 
                                    runtime='nvidia', 
                                    network='ai-network',
                                    volumes=volumes)
 
-
-    # retreive output of container from redis and return
-    if stringOutput:
-        return get_string_from_redis(r, id)
-    out = fromRedis(r, id)
-    return out
+    out = getResult(r, eval_id)
+    if imgOutput:
+        return out, get_image_results(dicom_paths)
+    return out, None

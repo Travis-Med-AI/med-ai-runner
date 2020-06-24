@@ -10,8 +10,8 @@ services:
         volumes:
         - ./app:/app
         - /var/run/docker.sock:/var/run/docker.sock
-        - images:/tmp
-        privileged: true
+        - ai-images:/tmp
+
     beat:
         build:
             context: .
@@ -21,7 +21,7 @@ services:
         working_dir: /app
         volumes:
         - ./app:/app
-        - images:/tmp
+        - ai-images:/tmp
         - /var/run/docker.sock:/var/run/docker.sock
 
     orthanc:
@@ -42,8 +42,8 @@ networks:
 
 volumes:
     orthanc-volume:
-        name: othanc-volume
-    images:
+        name: orthanc-volume
+    ai-images:
         name: ai-images
 
 secrets:

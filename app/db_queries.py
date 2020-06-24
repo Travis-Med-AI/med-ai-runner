@@ -13,7 +13,8 @@ def start_study_evaluations(studies: list, modelId: int):
 
     :return: a list of all db entries that were inserted
     """
-    values = map(lambda x: f'(\'{x[0]}\', null, \'RUNNING\', {modelId})', studies)
+    values = [f'(\'{study[0]}\', null, \'RUNNING\', {modelId})' for study in studies]
+
     if len(studies) == 0:
         return []
 
@@ -32,7 +33,23 @@ def start_study_evaluations(studies: list, modelId: int):
     return list(study_eval)
 
 
-def update_db(output: np.array, eval_id: int):
+def restart_failed_evals(eval_ids:list, modelId:int):
+    if len(eval_ids) == 0:
+        return
+
+
+    ids = ','.join([str(eval_id) for eval_id in eval_ids])
+
+    sql = f'''
+    UPDATE study_evaluation
+    SET status='RUNNING'
+    WHERE id in ({ids})
+    '''
+
+    query(sql)
+
+
+def update_db(output: np.array, image_path, eval_id: int):
     """
     Updates study evalutation status to completed and saves the model output
     
@@ -40,10 +57,16 @@ def update_db(output: np.array, eval_id: int):
     :param eval_id: the db id of the study evaluation
 
     :return: the updated study evaluation
+
     """
+
+    update_sql_string = ''
+    if image_path:
+        update_sql_string = f', "imgOutputPath"=\'{image_path}\''
+
     sql = f'''
     UPDATE study_evaluation 
-    SET status='COMPLETED', "modelOutput"=('{json.dumps(output.tolist())}')
+    SET status='COMPLETED', "modelOutput"=('{json.dumps(output.tolist())}') {update_sql_string}
     WHERE id={eval_id}
     '''
 
@@ -58,7 +81,7 @@ def get_eval_jobs():
     """
     sql = f'''
     SELECT * FROM eval_job ej
-    WHERE "status"='RUNNING' and ("endTime" is NULL or "endTime" > {time.time()})
+    WHERE "running"=true
     ORDER BY "lastRun"
     '''
 
@@ -101,6 +124,7 @@ def get_model(model_id):
     model = query_and_fetchone(sql)
 
     return model
+
 
 
 def insert_studies(orthanc_ids: list):
@@ -146,6 +170,22 @@ def save_study_type(orthanc_id: str, study_type: str):
     query(sql)
 
 
+def save_patient_id(patient_id, orthanc_id):
+    """
+    Saves a patient id to the database for study
+
+    :param patient_id: the patient id from orthanc
+    :param orthanc_id: the study id from orthanc
+    """
+
+    sql = f'''
+    UPDATE study
+    SET "patientId"='{patient_id}'
+    WHERE "orthancStudyId"='{orthanc_id}'
+    '''
+
+    query(sql)
+
 def get_studies_for_model(model_id):
     """
     Get studies from db that have not yet been evaluated by a given model
@@ -155,10 +195,12 @@ def get_studies_for_model(model_id):
     :returns: a list of unevaluated studies
     """
 
+    model = get_model(model_id)
+
     sql = f'''
     SELECT * FROM study s
     LEFT JOIN study_evaluation se on s.id = se."studyId"
-    WHERE se.id IS NULL OR se."modelId" <> {model_id}
+    WHERE (se.id IS NULL OR se."modelId" <> {model_id}) AND s.type = '{model['input']}'
     '''
 
     studies = query_and_fetchall(sql)
@@ -166,19 +208,31 @@ def get_studies_for_model(model_id):
     return studies
 
 
-def get_classifier_models():
+def get_failed_eval_ids(model_id):
+
+    sql = f'''
+    SELECT * FROM study_evaluation se
+    WHERE se."status" = 'FAILED' and se."modelId"={model_id}
+    '''
+
+    evals = query_and_fetchall(sql)
+
+
+    return [eval['id'] for eval in evals]
+
+
+def get_classifier_model():
     """
-    Gets classifier models from the database
+    Gets classifier model from the database
     """
 
     sql = f'''
-    SELECT * FROM model m
-    WHERE m.output = 'Study_Type'
+    SELECT * FROM classifier c
     '''
 
-    models = query_and_fetchall(sql)
+    classifier = query_and_fetchone(sql)
 
-    return models
+    return classifier['modelId']
 
 def get_studies():
     """
@@ -190,3 +244,46 @@ def get_studies():
     '''
 
     return query_and_fetchall(sql)
+
+def fail_classifer(study_id):
+    """
+    Updates study evalutation status to failed
+
+    :param eval_id: the db id of the study evaluation
+
+    :return: the updated study evaluation
+    """
+
+    sql = f'''
+    UPDATE study 
+    SET failed=true
+    WHERE "orthancStudyId"='{study_id}'
+    '''
+
+    query(sql)
+
+def remove_orphan_studies():
+    sql = f'''
+    DELETE FROM study
+    WHERE type is NULL
+    '''
+
+    query(sql)
+    print('cleaned orphan studies')
+
+def remove_study_by_id(orthanc_id):
+    sql = f'''
+    DELETE FROM study
+    WHERE "orthancStudyId"={orthanc_id}
+    '''
+
+    query(sql)
+
+def remove_orphan_evals():
+    sql = f'''
+    DELETE FROM study_evaluation
+    WHERE "modelOutput" is NULL
+    '''
+
+    query(sql)
+    print('cleaned orphan evals')

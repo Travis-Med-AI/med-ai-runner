@@ -1,10 +1,19 @@
 {
     "Name" : "Orthanc in Docker",
+    "Plugins": ["/usr/local/share/orthanc/plugins"],
     "RemoteAccessAllowed" : true,
     "AuthenticationEnabled": false,
     "DicomAet": "AI",
     "RegisteredUsers" : {
         "test" : "test123"
-    }
+    },
+    "PostgreSQL": {
+        "EnableIndex": true,
+        "EnableStorage": false, 
+        "Host": "postgres-db", 
+        "Database": "orthanc", 
+        "Username": "test", 
+        "Password": "test"
+      }
 }
   
