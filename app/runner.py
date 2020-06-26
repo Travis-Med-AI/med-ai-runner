@@ -102,7 +102,7 @@ def evaluate_studies(model_id, batch_size):
 
 
 @app.task
-def evaluate_dicom(model_image: str, orthanc_id: str, eval_id: int):
+def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
     """
     takes in a image, path to a dicom and a eval id from the db and evaluates the dicom using the image
 
@@ -112,13 +112,14 @@ def evaluate_dicom(model_image: str, orthanc_id: str, eval_id: int):
 
     """
     try:
+        model = db_queries.get_model(model_id)
         study_path, patient_id = utils.get_study(orthanc_id)
 
         print('here is the study path', study_path)
 
         # evaluate study and write result to db
-        output = utils.evaluate(model_image, [study_path], eval_id)
-        db_queries.update_db(output[0], None, eval_id)
+        results, images = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), bool(model['hasImageOutput']))
+        db_queries.update_db(results[0], images[0], eval_id)
     except:
         # catch errors and print output
         traceback.print_exc()
