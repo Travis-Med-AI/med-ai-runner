@@ -5,7 +5,7 @@ services:
             context: .
             dockerfile: ./dockerfiles/Dockerfile
         command: celery -A runner worker -l info
-        restart: on-failure
+        restart: unless-stopped
         working_dir: /app
         volumes:
         - ./app:/app
@@ -17,7 +17,7 @@ services:
             context: .
             dockerfile: ./dockerfiles/Dockerfile
         command: celery -A runner beat -l info
-        restart: on-failure
+        restart: unless-stopped
         working_dir: /app
         volumes:
         - ./app:/app
@@ -27,6 +27,7 @@ services:
     orthanc:
         image: jodogne/orthanc-plugins:1.7.1
         command: /run/secrets/  # Path to the configuration files (stored as secrets)
+        restart: unless-stopped
         volumes:
         - orthanc-volume:/var/lib/orthanc/db
         ports:
