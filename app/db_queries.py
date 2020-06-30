@@ -299,3 +299,9 @@ def get_classifier_model(modality):
 
     return query_and_fetchone(sql)
     
+def get_default_model():
+    sql = f'''
+    SELECT m.* FROM classifier c 
+    JOIN model m ON c."modelId"=m.id
+    '''
+    return query_and_fetchone(sql)

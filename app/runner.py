@@ -161,9 +161,10 @@ def classify_study(orthanc_ids, modalities):
             print('modality is ',  modality)
             classifier_model = db_queries.get_classifier_model(modality)
             if classifier_model is None:
-                for orthanc_id in study_paths:
-                    db_queries.remove_study_by_id(orthanc_id)
-                continue
+                classifier_model = db_queries.get_model()
+                # for orthanc_id in study_paths:
+                #     db_queries.remove_study_by_id(orthanc_id)
+                # continue
             study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
 
             # save a study to the database
