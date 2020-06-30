@@ -202,7 +202,6 @@ def get_studies_for_model(model_id):
     LEFT JOIN study_evaluation se on s.id = se."studyId"
     WHERE (se.id IS NULL OR se."modelId" <> {model_id}) 
           AND s.type = '{model['input']}'
-          AND s.modality='{model['modality']}'
     '''
 
     studies = query_and_fetchall(sql)
