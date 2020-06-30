@@ -20,8 +20,8 @@ def setup_periodic_tasks(sender, **kwargs):
     db_queries.remove_orphan_evals()
     db_queries.remove_orphan_studies()
     
-    sender.add_periodic_task(30, run_jobs.s(), name='check for jobs every 30 sec')
-    sender.add_periodic_task(30, classify_studies.s(15), name='check for new studies every 30 sec')
+    sender.add_periodic_task(10, run_jobs.s(), name='check for jobs every 30 sec')
+    sender.add_periodic_task(10, classify_studies.s(15), name='check for new studies every 30 sec')
 
 
 @app.task
