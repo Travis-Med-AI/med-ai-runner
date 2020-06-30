@@ -48,12 +48,12 @@ def classify_studies(batch_size):
 
     filtered_studies = filtered_studies[:batch_size]
 
-    classifier_model = db_queries.get_classifier_model()
+    modalities = [utils.get_modality(orthanc_id) for orthanc_id in filtered_studies]
 
     db_queries.insert_studies(filtered_studies)
 
     if len(filtered_studies) > 0:
-        classify_study.delay(classifier_model, filtered_studies)
+        classify_study.delay(filtered_studies, modalities)
 
 
 @app.task
@@ -85,10 +85,11 @@ def evaluate_studies(model_id, batch_size):
 
         results, images = utils.evaluate(model['image'], study_paths, str(uuid.uuid4()), bool(model['hasImageOutput']))
         print(results)
+        images = images if images is not None else [None for result in results]
 
         for result, image, eval_id in zip(results, images, eval_ids):
             try:
-                db_queries.update_db(result, image, eval_id)
+                db_queries.update_db(result, eval_id, image)
             except:
                 # catch errors and print output
                 traceback.print_exc()
@@ -113,13 +114,15 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
     """
     try:
         model = db_queries.get_model(model_id)
-        study_path, patient_id = utils.get_study(orthanc_id)
+        study_path, patient_id, modality = utils.get_study(orthanc_id)
 
         print('here is the study path', study_path)
 
         # evaluate study and write result to db
         results, images = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), bool(model['hasImageOutput']))
-        db_queries.update_db(results[0], images[0], eval_id)
+        
+        image = images[0] if images is not None else None
+        db_queries.update_db(results[0], eval_id, image)
     except:
         # catch errors and print output
         traceback.print_exc()
@@ -129,7 +132,7 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
 
 
 @app.task
-def classify_study(classifier_id:int, orthanc_ids):
+def classify_study(orthanc_ids, modalities):
     """
     Classifies a study coming from orthanc and saves db entry for the study
 
@@ -137,28 +140,36 @@ def classify_study(classifier_id:int, orthanc_ids):
     :param orthanc_id: the study id of the study coming from orthanc
     """
     try:
-
         # get the classifier model information from the db
-        classifier_model = db_queries.get_model(classifier_id)
+        studies = dict()
+        orthanc_info = zip(orthanc_ids, modalities)
 
-        study_paths = []
-
-        for orthanc_id in orthanc_ids:
+        for orthanc_id, modality in orthanc_info:
             # download study from orthanc to disk
-            study_path, patient_id = utils.get_study(orthanc_id)
+            study_path, patient_id, modality = utils.get_study(orthanc_id)
 
             # save the patient id
-            db_queries.save_patient_id(patient_id, orthanc_id)
+            db_queries.save_patient_id(patient_id, orthanc_id, modality)
 
-            study_paths.append(study_path)
+            if modality in studies:
+                studies[modality].append(study_path)
+            else:
+                studies[modality] = [study_path]
 
-        # evaluate the study using classifier model
-        study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
+        for modality, study_paths in studies.items():
+            # evaluate the study using classifier model
+            print('modality is ',  modality)
+            classifier_model = db_queries.get_classifier_model(modality)
+            if classifier_model is None:
+                for orthanc_id in study_paths:
+                    db_queries.remove_study_by_id(orthanc_id)
+                continue
+            study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
 
-        # save a study to the database
-        for orthanc_id, study_type in zip(orthanc_ids, study_types):
-            db_queries.save_study_type(orthanc_id, study_type)
-            print(f'saved {orthanc_id}')
+            # save a study to the database
+            for orthanc_id, study_type in zip(study_paths, study_types):
+                db_queries.save_study_type(orthanc_id, study_type)
+                print(f'saved {orthanc_id}')
 
     except:
         # catch errors and print output

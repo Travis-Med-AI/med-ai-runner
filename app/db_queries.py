@@ -49,7 +49,7 @@ def restart_failed_evals(eval_ids:list, modelId:int):
     query(sql)
 
 
-def update_db(output: np.array, image_path, eval_id: int):
+def update_db(output: np.array, eval_id: int, image_path=None):
     """
     Updates study evalutation status to completed and saves the model output
     
@@ -170,7 +170,7 @@ def save_study_type(orthanc_id: str, study_type: str):
     query(sql)
 
 
-def save_patient_id(patient_id, orthanc_id):
+def save_patient_id(patient_id, orthanc_id, modality):
     """
     Saves a patient id to the database for study
 
@@ -180,7 +180,7 @@ def save_patient_id(patient_id, orthanc_id):
 
     sql = f'''
     UPDATE study
-    SET "patientId"='{patient_id}'
+    SET "patientId"='{patient_id}', modality='{modality}'
     WHERE "orthancStudyId"='{orthanc_id}'
     '''
 
@@ -200,7 +200,9 @@ def get_studies_for_model(model_id):
     sql = f'''
     SELECT * FROM study s
     LEFT JOIN study_evaluation se on s.id = se."studyId"
-    WHERE (se.id IS NULL OR se."modelId" <> {model_id}) AND s.type = '{model['input']}'
+    WHERE (se.id IS NULL OR se."modelId" <> {model_id}) 
+          AND s.type = '{model['input']}'
+          AND s.modality='{model['modality']}'
     '''
 
     studies = query_and_fetchall(sql)
@@ -274,7 +276,7 @@ def remove_orphan_studies():
 def remove_study_by_id(orthanc_id):
     sql = f'''
     DELETE FROM study
-    WHERE "orthancStudyId"={orthanc_id}
+    WHERE "orthancStudyId"='{orthanc_id}'
     '''
 
     query(sql)
@@ -287,3 +289,13 @@ def remove_orphan_evals():
 
     query(sql)
     print('cleaned orphan evals')
+
+def get_classifier_model(modality):
+    sql = f'''
+    SELECT m.* FROM classifier c 
+    JOIN model m ON c."modelId"=m.id
+    WHERE m.modality = '{modality}'
+    '''
+
+    return query_and_fetchone(sql)
+    

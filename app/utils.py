@@ -12,6 +12,7 @@ from functools import reduce
 import requests
 from zipfile import ZipFile
 import db_queries
+import shutil
 
 
 def getResult(r, study_id):
@@ -55,18 +56,32 @@ def get_study(orthanc_id):
     study = requests.get(media_url)
     study_info = requests.get(study_info_url).json()
 
+    series_id = list(study_info.get('Series', {} ))
+    preview_url = f'http://orthanc:8042/series/{series_id[0]}'
+    series_info = requests.get(preview_url).json()
+
+    modality = series_info.get('MainDicomTags', {} ).get('Modality')
+
+    instance_id = list(series_info.get('Instances', {} ))
+    study_png = requests.get(f'http://orthanc:8042/instances/{instance_id[0]}/preview', stream=True)
+
     # define download path for study
     out_path = f'/tmp/{orthanc_id}'
     file_path = f'{out_path}.zip'
+    png_path = f'{out_path}.png'
 
     # write the downloaded study to disk
     open(file_path, 'wb').write(study.content)
+
+    with open(png_path, 'wb') as f:
+        study_png.raw.decode_content = True
+        shutil.copyfileobj(study_png.raw, f)  
 
     # unzip and save study
     with ZipFile(file_path, 'r') as zipObj:
         zipObj.extractall(out_path)
     
-    return orthanc_id, study_info.get('PatientMainDicomTags', {} ).get('PatientID')
+    return orthanc_id, study_info.get('PatientMainDicomTags', {} ).get('PatientID'), modality
 
 
 def evaluate(model_image, dicom_paths, eval_id, imgOutput=False):
@@ -99,3 +114,14 @@ def evaluate(model_image, dicom_paths, eval_id, imgOutput=False):
     if imgOutput:
         return out, get_image_results(dicom_paths)
     return out, None
+
+
+def get_modality(orthanc_id):
+    study_info_url = f'http://orthanc:8042/studies/{orthanc_id}'
+    study_info = requests.get(study_info_url).json()
+
+    series_id = list(study_info.get('Series', {} ))
+    preview_url = f'http://orthanc:8042/series/{series_id[0]}'
+    series_info = requests.get(preview_url).json()
+
+    return series_info.get('MainDicomTags', {} ).get('Modality')
