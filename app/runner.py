@@ -161,7 +161,7 @@ def classify_study(orthanc_ids, modalities):
             print('modality is ',  modality)
             classifier_model = db_queries.get_classifier_model(modality)
             if classifier_model is None:
-                classifier_model = db_queries.get_model()
+                classifier_model = db_queries.get_default_model()
                 # for orthanc_id in study_paths:
                 #     db_queries.remove_study_by_id(orthanc_id)
                 # continue
