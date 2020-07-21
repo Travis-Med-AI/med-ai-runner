@@ -143,6 +143,7 @@ def classify_study(orthanc_ids, modalities):
         # get the classifier model information from the db
         studies = dict()
         orthanc_info = zip(orthanc_ids, modalities)
+        ct_scans = []
 
         for orthanc_id, modality in orthanc_info:
             # download study from orthanc to disk
@@ -150,6 +151,10 @@ def classify_study(orthanc_ids, modalities):
 
             # save the patient id
             db_queries.save_patient_id(patient_id, orthanc_id, modality)
+
+            if utils.check_for_CT(orthanc_id):
+                ct_scans.append(orthanc_id)
+                continue
 
             if modality in studies:
                 studies[modality].append(study_path)
@@ -165,12 +170,17 @@ def classify_study(orthanc_ids, modalities):
                 # for orthanc_id in study_paths:
                 #     db_queries.remove_study_by_id(orthanc_id)
                 # continue
-            study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
 
+            study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
             # save a study to the database
             for orthanc_id, study_type in zip(study_paths, study_types):
                 db_queries.save_study_type(orthanc_id, study_type)
                 print(f'saved {orthanc_id}')
+        
+        for study in ct_scans:
+            db_queries.save_study_type(orthanc_id, 'CT')
+            print(f'saved {orthanc_id}')
+
 
     except:
         # catch errors and print output

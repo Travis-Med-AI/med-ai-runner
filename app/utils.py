@@ -25,7 +25,7 @@ def getResult(r, study_id):
     :return: the numpy array reteived from redis
     """
     path = r.get(study_id)
-    return np.load(f'/tmp/{path}')
+    return np.load(f'/tmp/{path}', allow_pickle=True)
 
 
 def get_image_results(orthanc_ids):
@@ -108,7 +108,8 @@ def evaluate(model_image, dicom_paths, eval_id, imgOutput=False):
                                    environment={'FILENAMES': filenames, 'ID': eval_id, 'SAVE_IMAGE': imgOutput}, 
                                    runtime='nvidia', 
                                    network='ai-network',
-                                   volumes=volumes)
+                                   volumes=volumes,
+                                   shm_size='11G')
 
     out = getResult(r, eval_id)
     if imgOutput:
@@ -125,3 +126,8 @@ def get_modality(orthanc_id):
     series_info = requests.get(preview_url).json()
 
     return series_info.get('MainDicomTags', {} ).get('Modality')
+
+def check_for_CT(orthanc_id):
+    # Check to see if the dicomdir has multiple images
+    path = f'/tmp/{orthanc_id}/IMAGES'
+    return len(os.listdir(path)) > 1
