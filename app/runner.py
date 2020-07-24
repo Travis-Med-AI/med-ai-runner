@@ -33,7 +33,7 @@ def run_jobs():
     jobs = db_queries.get_eval_jobs()
     for job in jobs:
         try:
-            evaluate_studies.delay(job['modelId'], 15)
+            evaluate_studies.delay(job['modelId'], 1)
         except:
             traceback.print_exc()
 
@@ -152,16 +152,18 @@ def classify_study(orthanc_ids, modalities):
             # save the patient id
             db_queries.save_patient_id(patient_id, orthanc_id, modality)
 
-            if utils.check_for_CT(orthanc_id):
-                ct_scans.append(orthanc_id)
-                continue
-
             if modality in studies:
                 studies[modality].append(study_path)
             else:
                 studies[modality] = [study_path]
 
         for modality, study_paths in studies.items():
+            if modality == 'CT' or utils.check_for_CT(orthanc_id):
+                for orthanc_id in study_paths:
+                    db_queries.save_study_type(orthanc_id, 'CT')
+                    print(f'saved {orthanc_id}')
+                continue
+
             # evaluate the study using classifier model
             print('modality is ',  modality)
             classifier_model = db_queries.get_classifier_model(modality)
@@ -176,10 +178,6 @@ def classify_study(orthanc_ids, modalities):
             for orthanc_id, study_type in zip(study_paths, study_types):
                 db_queries.save_study_type(orthanc_id, study_type)
                 print(f'saved {orthanc_id}')
-        
-        for study in ct_scans:
-            db_queries.save_study_type(orthanc_id, 'CT')
-            print(f'saved {orthanc_id}')
 
 
     except:

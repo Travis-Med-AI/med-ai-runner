@@ -1,0 +1,8 @@
+docker
+git+https://github.com/pydicom/pydicom.git
+future
+redis
+numpy
+psycopg2
+celery[redis]
+pillow

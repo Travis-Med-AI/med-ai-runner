@@ -3,7 +3,7 @@ from celery.schedules import crontab
 
 broker_url = 'amqp://guest:guest@rabbitmq:5672'
 result_backend = 'redis://redis:6379'
-worker_concurrency=3
+worker_concurrency=1
 # task_routes = ([
 #     ('runner.run_jobs', {'queue': 'jobs'}),
 #     ('runner.classify_studies', {'queue': 'classifiers'}),

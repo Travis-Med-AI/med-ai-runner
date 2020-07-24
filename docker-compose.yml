@@ -4,7 +4,7 @@ services:
         build:
             context: .
             dockerfile: ./dockerfiles/Dockerfile
-        command: celery -A runner worker -l info
+        command: python -m celery -A runner worker -l info
         restart: unless-stopped
         working_dir: /app
         volumes:
@@ -16,7 +16,7 @@ services:
         build:
             context: .
             dockerfile: ./dockerfiles/Dockerfile
-        command: celery -A runner beat -l info
+        command: python -m celery -A runner beat -l info
         restart: unless-stopped
         working_dir: /app
         volumes:
