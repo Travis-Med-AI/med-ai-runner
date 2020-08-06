@@ -2,7 +2,7 @@ from db_utils import query_and_fetchall, query_and_fetchone, query
 import json
 import time
 import numpy as np
-
+from medaimodels import ModelOutput
 
 def start_study_evaluations(studies: list, modelId: int):
     """
@@ -49,7 +49,7 @@ def restart_failed_evals(eval_ids:list, modelId:int):
     query(sql)
 
 
-def update_db(output: np.array, eval_id: int, image_path=None):
+def update_db(output: ModelOutput, eval_id: int):
     """
     Updates study evalutation status to completed and saves the model output
     
@@ -61,12 +61,13 @@ def update_db(output: np.array, eval_id: int, image_path=None):
     """
 
     update_sql_string = ''
-    if image_path:
-        update_sql_string = f', "imgOutputPath"=\'{image_path}\''
+    if output['image']:
+        img_path = output['image']
+        update_sql_string = f', "imgOutputPath"=\'{img_path}\''
 
     sql = f'''
     UPDATE study_evaluation 
-    SET status='COMPLETED', "modelOutput"=('{json.dumps(output.tolist())}') {update_sql_string}
+    SET status='COMPLETED', "modelOutput"=('{json.dumps(output)}') {update_sql_string}
     WHERE id={eval_id}
     '''
 

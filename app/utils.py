@@ -13,19 +13,21 @@ import requests
 from zipfile import ZipFile
 import db_queries
 import shutil
+import json
+from medaimodels import ModelOutput
 
 
-def getResult(r, study_id):
+def getResult(r, study_id) -> ModelOutput:
     """
     Retrieve Numpy array from Redis key
 
     :param r: redis connection
     :param n: redis key for the save array
 
-    :return: the numpy array reteived from redis
+    :return: the output reteived from redis
     """
-    path = r.get(study_id)
-    return np.load(f'/tmp/{path}', allow_pickle=True)
+    output = r.get(study_id)
+    return json.loads(output)
 
 
 def get_image_results(orthanc_ids):
@@ -112,9 +114,7 @@ def evaluate(model_image, dicom_paths, eval_id, imgOutput=False):
                                    shm_size='11G')
 
     out = getResult(r, eval_id)
-    if imgOutput:
-        return out, get_image_results(dicom_paths)
-    return out, None
+    return out
 
 
 def get_modality(orthanc_id):

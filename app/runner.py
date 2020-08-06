@@ -83,13 +83,12 @@ def evaluate_studies(model_id, batch_size):
     try:
         study_paths = [study['orthancStudyId'] for study in studies]
 
-        results, images = utils.evaluate(model['image'], study_paths, str(uuid.uuid4()), bool(model['hasImageOutput']))
+        results = utils.evaluate(model['image'], study_paths, str(uuid.uuid4()), bool(model['hasImageOutput']))
         print(results)
-        images = images if images is not None else [None for result in results]
 
-        for result, image, eval_id in zip(results, images, eval_ids):
+        for result, eval_id in zip(results, eval_ids):
             try:
-                db_queries.update_db(result, eval_id, image)
+                db_queries.update_db(result, eval_id)
             except:
                 # catch errors and print output
                 traceback.print_exc()
@@ -119,10 +118,9 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
         print('here is the study path', study_path)
 
         # evaluate study and write result to db
-        results, images = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), bool(model['hasImageOutput']))
-        
-        image = images[0] if images is not None else None
-        db_queries.update_db(results[0], eval_id, image)
+        results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), bool(model['hasImageOutput']))
+
+        db_queries.update_db(results[0], eval_id)
     except:
         # catch errors and print output
         traceback.print_exc()
@@ -173,10 +171,10 @@ def classify_study(orthanc_ids, modalities):
                 #     db_queries.remove_study_by_id(orthanc_id)
                 # continue
 
-            study_types, _ = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
+            results = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
             # save a study to the database
-            for orthanc_id, study_type in zip(study_paths, study_types):
-                db_queries.save_study_type(orthanc_id, study_type)
+            for orthanc_id, result in zip(study_paths, results):
+                db_queries.save_study_type(orthanc_id, result['display'])
                 print(f'saved {orthanc_id}')
 
 

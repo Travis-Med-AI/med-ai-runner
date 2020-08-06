@@ -6,3 +6,4 @@ numpy
 psycopg2
 celery[redis]
 pillow
+medaimodels
