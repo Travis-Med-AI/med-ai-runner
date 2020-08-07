@@ -10,6 +10,7 @@ import utils
 import db_queries
 import traceback
 import uuid
+import logger
 
 app = Celery('runner')
 app.config_from_object(settings)
@@ -29,6 +30,7 @@ def run_jobs():
     """
     checks the database for current eval jobs and evaluate studies
     """
+    logger.log('getting jobs')
     # Get currently running jobs
     jobs = db_queries.get_eval_jobs()
     for job in jobs:
