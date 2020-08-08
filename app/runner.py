@@ -1,26 +1,27 @@
-import os
-from celery import Celery, shared_task
-import settings
-import docker
-import redis
-import numpy as np
-import json
-import requests
-import utils
-import db_queries
+"""The main runner for med ai models"""
+
 import traceback
 import uuid
+from typing import List
+from collections import defaultdict
+from celery import Celery
+
+import db_queries
+import utils
+import settings
 import logger
+
 
 app = Celery('runner')
 app.config_from_object(settings)
 
 
 @app.on_after_configure.connect
-def setup_periodic_tasks(sender, **kwargs):
+def setup_periodic_tasks(sender):
+    """set up celery beat tasks"""
     db_queries.remove_orphan_evals()
     db_queries.remove_orphan_studies()
-    
+
     sender.add_periodic_task(10, run_jobs.s(), name='check for jobs every 30 sec')
     sender.add_periodic_task(10, classify_studies.s(15), name='check for new studies every 30 sec')
 
@@ -28,7 +29,7 @@ def setup_periodic_tasks(sender, **kwargs):
 @app.task
 def run_jobs():
     """
-    checks the database for current eval jobs and evaluate studies
+    checks the database for current eval jobs and evaluates studies
     """
     logger.log('getting jobs')
     # Get currently running jobs
@@ -41,53 +42,75 @@ def run_jobs():
 
 
 @app.task
-def classify_studies(batch_size):
+def classify_studies(batch_size: int):
+    """
+    This is run by the beat. It looks for new studies in orthanc and then classifies the study type
+
+    Args:
+        batch_size (int): the number of images to feed into the classifier at a time
+    """
+
+    # get orthanc study ids from orthanc
     orthanc_studies = utils.get_orthanc_studies()
 
+    # get ids of studies that have already been processed and saved to the db
     db_orthanc_ids = map(lambda x: x['orthancStudyId'], db_queries.get_studies())
 
+    # filter out studies that have already been evaluated
+    # TODO: this should be done with a db call the dose WHERE NOT IN ()
     filtered_studies = list(set(orthanc_studies) - set(db_orthanc_ids))
-
     filtered_studies = filtered_studies[:batch_size]
 
+    # get the modalities for all the orthanc studies
     modalities = [utils.get_modality(orthanc_id) for orthanc_id in filtered_studies]
 
+    # insert records in the db for all of the downloaded orthanc studies
     db_queries.insert_studies(filtered_studies)
 
+    # classify the downloaded studies
     if len(filtered_studies) > 0:
         classify_study.delay(filtered_studies, modalities)
 
 
 @app.task
-def evaluate_studies(model_id, batch_size):
+def evaluate_studies(model_id: List[str], batch_size: int):
     """
     Gets studies from orthanc and evaluates all of the applicable studies using a given model
-    
-    :param model_id: the database id of the model to use in evalutation
+
+    Args:
+        model_id (:obj:`list`): A list of study IDs from orthanc
+        batch_size (int): the number of images to process at a time
     """
+
     # get all studies from orthanc
     studies = db_queries.get_studies_for_model(model_id)
     failed_evals = db_queries.get_failed_eval_ids(model_id)
 
+    # trim studies down to batch size
     studies = studies[:batch_size]
 
     if len(studies) < 1:
         return
-    
+
     # get the appropriate evaluating model
     model = db_queries.get_model(model_id)
 
     # add db entries for the upcoming study evals
     eval_ids = db_queries.start_study_evaluations(studies, model['id'])
-    db_queries.restart_failed_evals(failed_evals, model['id'])
 
+    # reset the failed evaluations status to 'RUNNING'
+    db_queries.restart_failed_evals(failed_evals)
     eval_ids = eval_ids + failed_evals
+
     try:
-        study_paths = [study['orthancStudyId'] for study in studies]
+        # get the orthanc study IDs of all of the studies to be
+        # used as the file path for saving dicoms
+        orthanc_ids = [study['orthancStudyId'] for study in studies]
 
-        results = utils.evaluate(model['image'], study_paths, str(uuid.uuid4()), bool(model['hasImageOutput']))
-        print(results)
+        # evaluate the studies using the classifier
+        results = utils.evaluate(model['image'], orthanc_ids, str(uuid.uuid4()))
 
+        # loop through the results of the classifier and save the classifcation to the DB
         for result, eval_id in zip(results, eval_ids):
             try:
                 db_queries.update_db(result, eval_id)
@@ -106,22 +129,23 @@ def evaluate_studies(model_id, batch_size):
 @app.task
 def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
     """
-    takes in a image, path to a dicom and a eval id from the db and evaluates the dicom using the image
+    takes in a image, path to a dicom and a eval id
+    from the db and evaluates the dicom using the image
 
-    :param model_image: the name of the docker image that houses the model
-    :param dicom_path: the path on the disk to directory containing the DICOMDIR file
-    :param eval_id: the database id of the study evaluation
-
+    Args:
+        model_image (str): the tag of the docker image that houses the model
+        dicom_path (str): the path on the disk to the directory containing the DICOMDIR file
+        eval_id (int): the database id of the study evaluation that has already been saved by caller
     """
     try:
+        # get the model from the database
         model = db_queries.get_model(model_id)
-        study_path, patient_id, modality = utils.get_study(orthanc_id)
 
-        print('here is the study path', study_path)
+        # download the study from orthanc
+        study_path, _, _ = utils.get_study(orthanc_id)
 
         # evaluate study and write result to db
-        results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), bool(model['hasImageOutput']))
-
+        results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()))
         db_queries.update_db(results[0], eval_id)
     except:
         # catch errors and print output
@@ -132,57 +156,59 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
 
 
 @app.task
-def classify_study(orthanc_ids, modalities):
+def classify_study(orthanc_ids: List[int], modalities: List[str]):
     """
     Classifies a study coming from orthanc and saves db entry for the study
 
-    :param classifier_id: the Nid of the db entry for the classifying model
-    :param orthanc_id: the study id of the study coming from orthanc
+    Args:
+        classifier_id (int): the ID of the db entry for the classifying model
+        orthanc_id (int): the study id of the study coming from orthanc
     """
     try:
-        # get the classifier model information from the db
-        studies = dict()
-        orthanc_info = zip(orthanc_ids, modalities)
-        ct_scans = []
+        # set up dictionary that splits studies by modality as modality: list(study_path)
+        studies = defaultdict(list)
 
-        for orthanc_id, modality in orthanc_info:
+        for orthanc_id, modality in zip(orthanc_ids, modalities):
             # download study from orthanc to disk
             study_path, patient_id, modality = utils.get_study(orthanc_id)
 
             # save the patient id
             db_queries.save_patient_id(patient_id, orthanc_id, modality)
 
-            if modality in studies:
-                studies[modality].append(study_path)
-            else:
-                studies[modality] = [study_path]
+            # add studies to modality dictionary
+            studies[modality].append(study_path)
 
+        # TODO: seems like a lot of nested loops here...revisit and optimize
         for modality, study_paths in studies.items():
-            if modality == 'CT' or utils.check_for_CT(orthanc_id):
+
+            # Check to see if the case is a CT scan by seeing if the dicom modality is 'CT'
+            # or the DICOMDIR has multiple slices
+            # TODO: come up with a better solution for identifying CT scans
+            if modality == 'CT' or utils.check_for_ct(orthanc_id):
                 for orthanc_id in study_paths:
                     db_queries.save_study_type(orthanc_id, 'CT')
-                    print(f'saved {orthanc_id}')
                 continue
 
             # evaluate the study using classifier model
-            print('modality is ',  modality)
             classifier_model = db_queries.get_classifier_model(modality)
+
+            # check to see if there is currently a classifier set for the given modality
+            # if not just get the default one from the db
             if classifier_model is None:
                 classifier_model = db_queries.get_default_model()
-                # for orthanc_id in study_paths:
-                #     db_queries.remove_study_by_id(orthanc_id)
-                # continue
 
+            # run studies through the classifier model
             results = utils.evaluate(classifier_model['image'], study_paths, str(uuid.uuid4()))
-            # save a study to the database
+
+            # save the results of classifcation to the database
+            # TODO: optimize with BULK insert
             for orthanc_id, result in zip(study_paths, results):
                 db_queries.save_study_type(orthanc_id, result['display'])
-                print(f'saved {orthanc_id}')
-
-
     except:
         # catch errors and print output
         print('classification of study', orthanc_ids, 'failed')
         traceback.print_exc()
+
+        # remove studies from the db that failed on classfication
         for orthanc_id in orthanc_ids:
             db_queries.remove_study_by_id(orthanc_id)
