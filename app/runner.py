@@ -17,7 +17,7 @@ app.config_from_object(settings)
 
 
 @app.on_after_configure.connect
-def setup_periodic_tasks(sender):
+def setup_periodic_tasks(sender, **kwargs):
     """set up celery beat tasks"""
     db_queries.remove_orphan_evals()
     db_queries.remove_orphan_studies()
@@ -31,13 +31,13 @@ def run_jobs():
     """
     checks the database for current eval jobs and evaluates studies
     """
-    logger.log('getting jobs')
     # Get currently running jobs
     jobs = db_queries.get_eval_jobs()
     for job in jobs:
         try:
             evaluate_studies.delay(job['modelId'], 1)
-        except:
+        except Exception as e:
+            logger.log_error(f'{job.id} failed', traceback.format_exc())
             traceback.print_exc()
 
 
@@ -81,50 +81,54 @@ def evaluate_studies(model_id: List[str], batch_size: int):
         model_id (:obj:`list`): A list of study IDs from orthanc
         batch_size (int): the number of images to process at a time
     """
-
-    # get all studies from orthanc
-    studies = db_queries.get_studies_for_model(model_id)
-    failed_evals = db_queries.get_failed_eval_ids(model_id)
-
-    # trim studies down to batch size
-    studies = studies[:batch_size]
-
-    if len(studies) < 1:
-        return
-
-    # get the appropriate evaluating model
-    model = db_queries.get_model(model_id)
-
-    # add db entries for the upcoming study evals
-    eval_ids = db_queries.start_study_evaluations(studies, model['id'])
-
-    # reset the failed evaluations status to 'RUNNING'
-    db_queries.restart_failed_evals(failed_evals)
-    eval_ids = eval_ids + failed_evals
-
     try:
-        # get the orthanc study IDs of all of the studies to be
-        # used as the file path for saving dicoms
-        orthanc_ids = [study['orthancStudyId'] for study in studies]
 
-        # evaluate the studies using the classifier
-        results = utils.evaluate(model['image'], orthanc_ids, str(uuid.uuid4()))
+        # get all studies from orthanc
+        studies = db_queries.get_studies_for_model(model_id)
+        failed_evals = db_queries.get_failed_eval_ids(model_id)
+        # trim studies down to batch size
+        studies = studies[:batch_size]
 
-        # loop through the results of the classifier and save the classifcation to the DB
-        for result, eval_id in zip(results, eval_ids):
-            try:
-                db_queries.update_db(result, eval_id)
-            except:
-                # catch errors and print output
-                traceback.print_exc()
+        if len(studies) < 1:
+            return
 
-                # update eval status to FAILED
+        # get the appropriate evaluating model
+        model = db_queries.get_model(model_id)
+
+        # add db entries for the upcoming study evals
+        eval_ids = db_queries.start_study_evaluations(studies, model['id'])
+
+        # reset the failed evaluations status to 'RUNNING'
+        db_queries.restart_failed_evals(failed_evals)
+        eval_ids = eval_ids + failed_evals
+
+        try:
+            # get the orthanc study IDs of all of the studies to be
+            # used as the file path for saving dicoms
+            orthanc_ids = [study['orthancStudyId'] for study in studies]
+
+            # evaluate the studies using the classifier
+            results = utils.evaluate(model['image'], orthanc_ids, str(uuid.uuid4()))
+
+            # loop through the results of the classifier and save the classifcation to the DB
+            for result, eval_id in zip(results, eval_ids):
+                try:
+                    db_queries.update_db(result, eval_id)
+                except:
+                    # catch errors and print output
+                    traceback.print_exc()
+                    logger.log_error(f'updating eval {eval_id} failed', traceback.format_exc())
+                    # update eval status to FAILED
+                    db_queries.fail_eval(eval_id)
+        except Exception as e:
+            traceback.print_exc()
+            logger.log_error(f'evaluating evaluations {eval_ids} failed', traceback.format_exc())
+
+            for eval_id in eval_ids:
                 db_queries.fail_eval(eval_id)
-    except:
+    except Exception as e:
         traceback.print_exc()
-        for eval_id in eval_ids:
-            db_queries.fail_eval(eval_id)
-
+        logger.log_error(f'evaluating model {model_id} failed', traceback.format_exc())
 
 @app.task
 def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
@@ -138,6 +142,8 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
         eval_id (int): the database id of the study evaluation that has already been saved by caller
     """
     try:
+        logger.log(f'evaluation {eval_id} using model {model_id} started')
+
         # get the model from the database
         model = db_queries.get_model(model_id)
 
@@ -147,10 +153,11 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
         # evaluate study and write result to db
         results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()))
         db_queries.update_db(results[0], eval_id)
-    except:
+    
+    except Exception as e:
         # catch errors and print output
         traceback.print_exc()
-
+        logger.log_error(f'evaluation {eval_id} using model {model_id} failed', traceback.format_exc())
         # update eval status to FAILED
         db_queries.fail_eval(eval_id)
 
@@ -184,7 +191,7 @@ def classify_study(orthanc_ids: List[int], modalities: List[str]):
             # Check to see if the case is a CT scan by seeing if the dicom modality is 'CT'
             # or the DICOMDIR has multiple slices
             # TODO: come up with a better solution for identifying CT scans
-            if modality == 'CT' or utils.check_for_ct(orthanc_id):
+            if modality == 'CT' or utils.check_for_ct(study_paths[0]):
                 for orthanc_id in study_paths:
                     db_queries.save_study_type(orthanc_id, 'CT')
                 continue
@@ -204,11 +211,11 @@ def classify_study(orthanc_ids: List[int], modalities: List[str]):
             # TODO: optimize with BULK insert
             for orthanc_id, result in zip(study_paths, results):
                 db_queries.save_study_type(orthanc_id, result['display'])
-    except:
+    except Exception as e:
         # catch errors and print output
         print('classification of study', orthanc_ids, 'failed')
         traceback.print_exc()
-
+        logger.log_error(f'classfying {orthanc_ids} failed', traceback.format_exc())
         # remove studies from the db that failed on classfication
         for orthanc_id in orthanc_ids:
             db_queries.remove_study_by_id(orthanc_id)

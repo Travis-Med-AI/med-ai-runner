@@ -2,6 +2,7 @@
 
 import logging
 import logstash
+from typing import Dict
 
 HOST = 'logstash'
 
@@ -10,21 +11,24 @@ logger.setLevel(logging.INFO)
 logger.addHandler(logstash.LogstashHandler(HOST, 5000, version=1))
 
 # test_logger.addHandler(logstash.TCPLogstashHandler(host, 5959, version=1))
-def log(message: str):
+def log(message: str, extras: Dict = None):
     """
     Logs a message to logstash
-
+    
     Args:
         message (str): the message to log
     """
-    logger.info(message)
+    logger.info(message, extra=extras)
 
 
-def log_error(message):
+def log_error(message, stack):
     """
     Logs an error to logstash
 
     Args:
         message (str): the message to log
     """
-    logger.error(message)
+    extra = {
+        'stack': stack
+    }
+    logger.error(message, extra=extra)

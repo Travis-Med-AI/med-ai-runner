@@ -1,9 +1,11 @@
 """db utils that are used by all queries"""
 
+import traceback
 from typing import Dict, List
 
 from psycopg2 import connect
 from psycopg2.extras import DictCursor
+import logger
 
 
 def get_pg_connection() -> (Dict, Dict):
@@ -13,10 +15,15 @@ def get_pg_connection() -> (Dict, Dict):
     Returns:
         (Dict, Dict): the pg connection and cursor
     """
-    pg_conn = connect(host='postgres-db', user='test', password='test', dbname='ai')
-    pg_cur = pg_conn.cursor(cursor_factory=DictCursor)
+    try:
+        pg_conn = connect(host='postgres-db', user='test', password='test', dbname='ai')
+        pg_cur = pg_conn.cursor(cursor_factory=DictCursor)
 
-    return pg_conn, pg_cur
+        return pg_conn, pg_cur
+    except Exception as e:
+        traceback.print_exc()
+        logger.log_error('DB ERROR', traceback.format_exc())
+        raise e
 
 
 def query_and_fetchone(sql_query: str) -> Dict:
@@ -29,17 +36,23 @@ def query_and_fetchone(sql_query: str) -> Dict:
     Returns:
         Dict: A single row from the query
     """
-    pg_conn, pg_cur = get_pg_connection()
+    try:
+        pg_conn, pg_cur = get_pg_connection()
 
-    pg_cur.execute(sql_query)
+        pg_cur.execute(sql_query)
 
-    result = pg_cur.fetchone()
+        result = pg_cur.fetchone()
 
-    pg_conn.commit()
-    pg_cur.close()
-    pg_conn.close()
+        pg_conn.commit()
+        pg_cur.close()
+        pg_conn.close()
 
-    return result
+        return result
+
+    except Exception as e:
+        traceback.print_exc()
+        logger.log_error('DB ERROR', traceback.format_exc())
+        raise e
 
 
 def query_and_fetchall(sql_query: str) -> List[Dict]:
@@ -52,17 +65,22 @@ def query_and_fetchall(sql_query: str) -> List[Dict]:
     Returns:
         List[Dict]: All rows from the query
     """
-    pg_conn, pg_cur = get_pg_connection()
+    try:
+        pg_conn, pg_cur = get_pg_connection()
 
-    pg_cur.execute(sql_query)
+        pg_cur.execute(sql_query)
 
-    result = pg_cur.fetchall()
+        result = pg_cur.fetchall()
 
-    pg_conn.commit()
-    pg_cur.close()
-    pg_conn.close()
+        pg_conn.commit()
+        pg_cur.close()
+        pg_conn.close()
 
-    return result
+        return result
+    except Exception as e:
+        traceback.print_exc()
+        logger.log_error('DB ERROR', traceback.format_exc())
+        raise e
 
 
 def query(sql_query: str):
@@ -72,10 +90,16 @@ def query(sql_query: str):
     Args:
         sql_query: the SQL query
     """
-    pg_conn, pg_cur = get_pg_connection()
 
-    pg_cur.execute(sql_query)
+    try:
+        pg_conn, pg_cur = get_pg_connection()
 
-    pg_conn.commit()
-    pg_cur.close()
-    pg_conn.close()
+        pg_cur.execute(sql_query)
+
+        pg_conn.commit()
+        pg_cur.close()
+        pg_conn.close()
+    except Exception as e:
+        traceback.print_exc()
+        logger.log_error('DB ERROR', traceback.format_exc())
+        raise e

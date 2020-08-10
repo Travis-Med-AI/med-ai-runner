@@ -1,4 +1,4 @@
-version: '3.5'
+version: '2.3'
 services: 
     worker:
         build:
@@ -25,28 +25,32 @@ services:
         - /var/run/docker.sock:/var/run/docker.sock
 
     orthanc:
+        build:
+            context: .
+            dockerfile: dockerfiles/orthanc.Dockerfile
         image: jodogne/orthanc-plugins:1.7.1
-        command: /run/secrets/  # Path to the configuration files (stored as secrets)
         restart: unless-stopped
         volumes:
         - orthanc-volume:/var/lib/orthanc/db
         ports:
         - 4243:4242
         - 8043:8042
-        secrets:
-        - orthanc.json
 
 networks:
     default:
         external:
             name: ai-network
 
-volumes:
-    orthanc-volume:
-        name: orthanc-volume
-    ai-images:
-        name: ai-images
 
-secrets:
-    orthanc.json:
-        file: ./orthanc.json
+volumes:
+    ai-images:
+        external:
+            name: ai-images
+    ai-images:
+        external:
+            name: orthanc-volume
+# volumes:
+#     orthanc-volume:
+#         name: orthanc-volume
+#     ai-images:
+#         name: ai-images

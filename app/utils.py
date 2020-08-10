@@ -9,6 +9,7 @@ from typing import List
 import requests
 import redis
 import docker
+import logger
 from medaimodels import ModelOutput
 
 
@@ -24,6 +25,7 @@ def get_result(redis_connection, eval_id: int) -> ModelOutput:
         :obj:`ModelOutput`: the output received from redis
     """
     output = redis_connection.get(eval_id)
+    print('here is the output \n\n\n\n', output)
     return json.loads(output)
 
 
@@ -93,7 +95,7 @@ def get_study(orthanc_id: str) -> (str, str, str):
     return orthanc_id, study_info.get('PatientMainDicomTags', {}).get('PatientID'), modality
 
 
-def evaluate(model_image: str, dicom_paths: List[str], eval_id: int) -> List[ModelOutput]:
+def evaluate(model_image: str, dicom_paths: List[str], eval_id: str) -> List[ModelOutput]:
     """
     Evaluate a study using a model
 
@@ -124,14 +126,15 @@ def evaluate(model_image: str, dicom_paths: List[str], eval_id: int) -> List[Mod
     # send eval to docker daemon and start container
     # set env variables
     # set runtime to nvidia so that it has a connection to the cuda runtime on host
-    client.containers.run(image=model_image, 
-                          detach=False, 
-                          environment={'FILENAMES': filenames, 'ID': eval_id}, 
-                          runtime='nvidia', 
+    stdout = client.containers.run(image=model_image,
+                          detach=False,
+                          environment={'FILENAMES': filenames, 'ID': eval_id},
+                          runtime='nvidia',
                           network='ai-network',
                           volumes=volumes,
                           shm_size='11G')
-
+    logger_extra = {'stdout': str(stdout)}
+    logger.log(f'Finished model execution for evaluation {eval_id}', logger_extra)
     out = get_result(r, eval_id)
     return out
 
