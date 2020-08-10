@@ -1,55 +1,39 @@
+<p align="center">
+  <a href="https://travis-med-ai.github.io">
+    <img alt="Travis AI" src="logo.svg" width="60" />
+  </a>
+</p>
+<h1 align="center">
+  Travis Med AI
+</h1>
+
+<h3 align="center">
+  Simplified AI in a clinical Setting
+</h3>
+<p align="center">
+  Travis Med AI is an open source AI framework based on Docker to help streamline machine learning integration into the clinic.
+</p>
+<p align="center">
+  <a href="https://github.com/travis-med-ai/med-ai/blob/master/LICENSE.md">
+    <img src="https://img.shields.io/badge/license-ASL-blue.svg" alt="Travis Med AI is released under the MIT license." />
+  </a>
+  <a href="https://travis-med-ai.github.io/contributing/how-to-contribute/">
+    <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome!" />
+  </a>
+    <a href="https://travis-med-ai.github.io/med-ai-runner">
+    <img src="https://github.com/Travis-Med-AI/med-ai-runner/workflows/Documentation/badge.svg" alt="Documentation" />
+  </a>
+</p>
+
+<h3 align="center">
+  <a href="https://travis-med-ai.github.io/installation">Installation/Quickstart</a>
+  <span> · </span>
+  <a href="https://travis-med-ai.github.io/tutorial">Tutorial</a>
+  <span> · </span>
+  <a href="https://travis-med-ai.github.io/models">Models</a>
+  <span> · </span>
+  <a href="https://travis-med-ai.github.io/contributing/how-to-contribute/">Contribute</a>
+</h3>
+
 # med_ai_runner
 A framework for running your deep learning models in practice
-
-## Device Setup
-- Install docker from [here](https://docs.docker.com/engine/install/ubuntu/)
-- Install nvidia drivers
-- Install nvidia runtime (more info [here](https://github.com/NVIDIA/nvidia-docker#quickstart))
-``` 
-# Add the package repositories
-distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-
-sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
-sudo systemctl restart docker
-```
-- Install nvidia-container-runtime
-``` 
-sudo apt install nvidia-container-runtime 
-```
-- Add the following file at ```/etc/docker/daemon.json```
-```
-{
-
-    "runtimes": {
-        "nvidia": {
-            "path": "nvidia-container-runtime",
-            "runtimeArgs": []
-        }
-    }
-}
-```
-- Test that the setup is working with the following command
-```
-docker run --runtime=nvidia nvidia/cuda:10.0-base nvidia-smi
-```
-
-## Model Containers
-- Build on top of docker
-
-### Container Metadata
-- Metadata about the input and output of a given model container
-- Attributes - docker labels attached to the image
-  - input: Type of expected input (dicom)
-  - output: Shape of output (numpy)
-  - name: Name of the model
-  - description: Description of what the model does
-  
-### Container Format
-- Environment Variables
-  - ```FILENAME```: the name of the dicom file to be read
-  - ```FILEDIR```: the name of the directory to be read
-- CMD of the docker container:
-  - If single dicom input: ```CMD [your python script] ${FILENAME}```
-  - If dicom directory input: ```CMD [your python script] ${FILEDIR}```
