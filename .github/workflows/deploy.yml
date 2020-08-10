@@ -8,9 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.2
-    - uses: ammaraskar/sphinx-action@master
-      with:
-        docs-folder: "docs/"
+      run: |
+            pip install poetry
+            poetry config virtualenvs.create false
+            poetry install --no-interaction --no-ansi
+            cd docs
+            make html
 
     - name: Commit documentation changes
       run: |
