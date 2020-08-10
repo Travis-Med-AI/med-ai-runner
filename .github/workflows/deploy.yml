@@ -8,10 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.3.2
+    - name: Install Deps
       run: |
             pip install poetry
             poetry config virtualenvs.create false
             poetry install --no-interaction --no-ansi
+    - name: Build Docs
+      run: |
             cd docs
             make html
 
