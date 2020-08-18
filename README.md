@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://travis-med-ai.github.io">
-    <img alt="Travis AI" src="https://raw.githubusercontent.com/Travis-Med-AI/med-ai/master/logo.svg" width="60" />
+    <img alt="Travis AI" src="logo.svg" width="60" />
   </a>
 </p>
 <h1 align="center">
@@ -20,9 +20,6 @@
   <a href="https://travis-med-ai.github.io/contributing/how-to-contribute/">
     <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome!" />
   </a>
-    <a href="https://travis-med-ai.github.io/med-ai-runner">
-    <img src="https://github.com/Travis-Med-AI/med-ai-runner/workflows/Documentation/badge.svg" alt="Documentation" />
-  </a>
 </p>
 
 <h3 align="center">
@@ -34,6 +31,3 @@
   <span> · </span>
   <a href="https://travis-med-ai.github.io/contributing/how-to-contribute/">Contribute</a>
 </h3>
-
-# med_ai_runner
-A framework for running your deep learning models in practice
