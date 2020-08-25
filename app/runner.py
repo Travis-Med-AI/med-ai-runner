@@ -10,6 +10,7 @@ import db_queries
 import utils
 import settings
 import logger
+import messaging
 
 
 app = Celery('runner')
@@ -111,9 +112,11 @@ def evaluate_studies(model_id: List[str], batch_size: int):
             results = utils.evaluate(model['image'], orthanc_ids, str(uuid.uuid4()))
 
             # loop through the results of the classifier and save the classifcation to the DB
-            for result, eval_id in zip(results, eval_ids):
+            for result, eval_id, orthanc_id in zip(results, eval_ids, orthanc_ids):
                 try:
                     db_queries.update_db(result, eval_id)
+                    messaging.send_notification(f'Finished evaluating {orthanc_id} with model {model_id}')
+
                 except:
                     # catch errors and print output
                     traceback.print_exc()
@@ -152,6 +155,7 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
 
         # evaluate study and write result to db
         results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()))
+        messaging.send_notification(f'Finished evaluating {orthanc_id} with model {model_id}')
         db_queries.update_db(results[0], eval_id)
     
     except Exception as e:

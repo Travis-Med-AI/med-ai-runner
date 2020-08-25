@@ -34,7 +34,7 @@ services:
         - orthanc-volume:/var/lib/orthanc/db
         ports:
         - 4243:4242
-        - 8043:8042
+        - 8042:8042
 
 networks:
     default:
@@ -46,7 +46,7 @@ volumes:
     ai-images:
         external:
             name: ai-images
-    ai-images:
+    orthanc-volume:
         external:
             name: orthanc-volume
 # volumes:
