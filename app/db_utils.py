@@ -103,3 +103,9 @@ def query(sql_query: str):
         traceback.print_exc()
         logger.log_error('DB ERROR', traceback.format_exc())
         raise e
+
+
+def join_for_in_clause(lst: List):
+    if len(lst) < 1:
+        return '-1'
+    return ','.join([str(item) for item in lst])

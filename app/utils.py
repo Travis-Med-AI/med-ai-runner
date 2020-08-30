@@ -10,6 +10,8 @@ import requests
 import redis
 import docker
 import logger
+import messaging
+import db_queries
 from medaimodels import ModelOutput
 
 
@@ -83,10 +85,14 @@ def get_study(orthanc_id: str) -> (str, str, str):
 
     # write the downloaded study to disk
     open(file_path, 'wb').write(study.content)
+    
+    study_file = open(png_path, 'wb')
 
-    with open(png_path, 'wb') as file:
-        study_png.raw.decode_content = True
-        shutil.copyfileobj(study_png.raw, file)
+    study_file.write(study_png.content)
+    study_file.close()
+    # with open(png_path, 'wb') as file:
+    #     study_png.raw.decode_content = True
+    #     shutil.copyfileobj(study_png.raw, file)
 
     # unzip and save study
     with ZipFile(file_path, 'r') as zip_obj:
@@ -95,7 +101,7 @@ def get_study(orthanc_id: str) -> (str, str, str):
     return orthanc_id, study_info.get('PatientMainDicomTags', {}).get('PatientID'), modality
 
 
-def evaluate(model_image: str, dicom_paths: List[str], eval_id: str) -> List[ModelOutput]:
+def evaluate(model_image: str, dicom_paths: List[str], uuid: str, eval_ids: List[int] = None) -> List[ModelOutput]:
     """
     Evaluate a study using a model
 
@@ -110,7 +116,7 @@ def evaluate(model_image: str, dicom_paths: List[str], eval_id: str) -> List[Mod
     """
     # get redis client
     r = redis.StrictRedis(host='redis', port=6379, db=0, decode_responses=True)
-    print('eval info', model_image, dicom_paths, eval_id)
+    print('eval info', model_image, dicom_paths, uuid)
 
     # get docker client
     client = docker.from_env()
@@ -126,16 +132,27 @@ def evaluate(model_image: str, dicom_paths: List[str], eval_id: str) -> List[Mod
     # send eval to docker daemon and start container
     # set env variables
     # set runtime to nvidia so that it has a connection to the cuda runtime on host
-    stdout = client.containers.run(image=model_image,
-                          detach=False,
-                          environment={'FILENAMES': filenames, 'ID': eval_id},
-                          runtime='nvidia',
-                          network='ai-network',
-                          volumes=volumes,
-                          shm_size='11G')
+    container = client.containers.run(image=model_image,
+                                      detach=True,
+                                      environment={'FILENAMES': filenames, 'ID': uuid},
+                                      runtime='nvidia',
+                                      network='ai-network',
+                                      volumes=volumes,
+                                      shm_size='11G')
+    stdout = []
+
+    for line in container.logs(stream=True):
+        if eval_ids is not None: 
+            line = str(line).replace("b'", "").replace("'", "")
+
+            db_queries.add_stdout_to_eval(eval_ids, line)
+            for eval_id in eval_ids:
+                messaging.send_model_log(eval_id, line)
+            stdout.append(line)
+
     logger_extra = {'stdout': str(stdout)}
-    logger.log(f'Finished model execution for evaluation {eval_id}', logger_extra)
-    out = get_result(r, eval_id)
+    logger.log(f'Finished model execution for evaluation {uuid}', logger_extra)
+    out = get_result(r, uuid)
     return out
 
 

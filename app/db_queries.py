@@ -5,7 +5,9 @@ from typing import List, Dict
 
 from medaimodels import ModelOutput
 
-from db_utils import query_and_fetchall, query_and_fetchone, query
+import logger 
+import messaging
+from db_utils import query_and_fetchall, query_and_fetchone, query, join_for_in_clause
 
 def start_study_evaluations(studies: List[int], model_id: int) -> List[int]:
     """
@@ -19,6 +21,10 @@ def start_study_evaluations(studies: List[int], model_id: int) -> List[int]:
         List[int]: a list of ids of the db entries that were inserted
     """
 
+    logger.log(f'starting study evaluations for {studies}')
+
+    for study in studies:
+        messaging.send_notification(study, 'eval_started')
     # create string that contains the insert values for the studies
     # kind of janky TBH
     values = [f'(\'{study[0]}\', null, \'RUNNING\', {model_id})' for study in studies]
@@ -359,3 +365,45 @@ def get_default_model():
     JOIN model m ON c."modelId"=m.id
     '''
     return query_and_fetchone(sql)
+
+def get_study_by_orthanc_id(orthanc_id: str):
+    """
+    Gets a study by orthanc_id
+    Args:
+        orthanc_id (str): the orthanc_study
+    Returns:
+        Dict: the default classifier model
+    """
+    logger.log(f'inserting study for orthanc Id: {orthanc_id}')
+    sql = f'''
+    SELECT * from study
+    WHERE "orthancStudyId"='{orthanc_id}'
+    '''
+
+    return query_and_fetchone(sql)
+
+def get_study_evals(eval_ids: List[int]):
+    sql = f'''
+    SELECT * from study_evaluation
+    WHERE id in ({join_for_in_clause(eval_ids)})
+    '''
+
+    return query_and_fetchall(sql)
+
+
+def add_stdout_to_eval(eval_ids: List[int], line: str):
+    studies = get_study_evals(eval_ids)
+
+    stdout = []
+
+    if studies[0]['stdout'] is not None:
+        stdout = studies[0]['stdout']
+
+    stdout.append(line)
+    sql = f'''
+    UPDATE study_evaluation
+    SET stdout=('{json.dumps(stdout)}')
+    WHERE id in ({join_for_in_clause(eval_ids)})
+    '''
+
+    query(sql)

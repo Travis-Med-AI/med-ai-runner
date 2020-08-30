@@ -23,8 +23,8 @@ def setup_periodic_tasks(sender, **kwargs):
     db_queries.remove_orphan_evals()
     db_queries.remove_orphan_studies()
 
-    sender.add_periodic_task(10, run_jobs.s(), name='check for jobs every 30 sec')
-    sender.add_periodic_task(10, classify_studies.s(15), name='check for new studies every 30 sec')
+    sender.add_periodic_task(10, run_jobs.s(), name='check for jobs every 10 sec')
+    sender.add_periodic_task(10, classify_studies.s(5), name='check for new studies every 10 sec')
 
 
 @app.task
@@ -93,6 +93,7 @@ def evaluate_studies(model_id: List[str], batch_size: int):
         if len(studies) < 1:
             return
 
+
         # get the appropriate evaluating model
         model = db_queries.get_model(model_id)
 
@@ -109,13 +110,13 @@ def evaluate_studies(model_id: List[str], batch_size: int):
             orthanc_ids = [study['orthancStudyId'] for study in studies]
 
             # evaluate the studies using the classifier
-            results = utils.evaluate(model['image'], orthanc_ids, str(uuid.uuid4()))
+            results = utils.evaluate(model['image'], orthanc_ids, str(uuid.uuid4()), eval_ids)
 
             # loop through the results of the classifier and save the classifcation to the DB
             for result, eval_id, orthanc_id in zip(results, eval_ids, orthanc_ids):
                 try:
                     db_queries.update_db(result, eval_id)
-                    messaging.send_notification(f'Finished evaluating {orthanc_id} with model {model_id}')
+                    messaging.send_notification(f'Finished evaluating {orthanc_id} with model {model_id}', 'new_result')
 
                 except:
                     # catch errors and print output
@@ -125,26 +126,35 @@ def evaluate_studies(model_id: List[str], batch_size: int):
                     db_queries.fail_eval(eval_id)
         except Exception as e:
             traceback.print_exc()
-            logger.log_error(f'evaluating evaluations {eval_ids} failed', traceback.format_exc())
+            error_message = f'evaluation {eval_id} using model {model_id} failed'
+            logger.log_error(error_message, traceback.format_exc())
 
             for eval_id in eval_ids:
                 db_queries.fail_eval(eval_id)
+            messaging.send_notification(error_message, 'eval_failed')
+            
     except Exception as e:
         traceback.print_exc()
-        logger.log_error(f'evaluating model {model_id} failed', traceback.format_exc())
+        error_message = f'evaluation {eval_id} using model {model_id} failed'
+
+        logger.log_error(error_message, traceback.format_exc())
+        messaging.send_notification(error_message, 'eval_failed')
 
 @app.task
-def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
+def evaluate_dicom(model_id: int, orthanc_id: str):
     """
     takes in a image, path to a dicom and a eval id
     from the db and evaluates the dicom using the image
 
     Args:
-        model_image (str): the tag of the docker image that houses the model
+        model_id (int): the id of the database model
         dicom_path (str): the path on the disk to the directory containing the DICOMDIR file
         eval_id (int): the database id of the study evaluation that has already been saved by caller
     """
     try:
+        study = db_queries.get_study_by_orthanc_id(orthanc_id)
+        eval_ids = db_queries.start_study_evaluations([[study['id']]], model_id)
+        eval_id = eval_ids[0]
         logger.log(f'evaluation {eval_id} using model {model_id} started')
 
         # get the model from the database
@@ -154,16 +164,19 @@ def evaluate_dicom(model_id: str, orthanc_id: str, eval_id: int):
         study_path, _, _ = utils.get_study(orthanc_id)
 
         # evaluate study and write result to db
-        results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()))
-        messaging.send_notification(f'Finished evaluating {orthanc_id} with model {model_id}')
+        results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), eval_ids)
         db_queries.update_db(results[0], eval_id)
+        messaging.send_notification(f'Finished evaluating {orthanc_id} with model {model_id}', 'new_result')
     
     except Exception as e:
         # catch errors and print output
         traceback.print_exc()
-        logger.log_error(f'evaluation {eval_id} using model {model_id} failed', traceback.format_exc())
+        error_message = f'evaluation for study {orthanc_id} using model {model_id} failed'
+        logger.log_error(error_message, traceback.format_exc())
         # update eval status to FAILED
+
         db_queries.fail_eval(eval_id)
+        messaging.send_notification(error_message, 'eval_failed')
 
 
 @app.task
@@ -198,6 +211,7 @@ def classify_study(orthanc_ids: List[int], modalities: List[str]):
             if modality == 'CT' or utils.check_for_ct(study_paths[0]):
                 for orthanc_id in study_paths:
                     db_queries.save_study_type(orthanc_id, 'CT')
+                    messaging.send_notification(f'Study {orthanc_id} ready', 'study_ready')
                 continue
 
             # evaluate the study using classifier model
@@ -215,6 +229,8 @@ def classify_study(orthanc_ids: List[int], modalities: List[str]):
             # TODO: optimize with BULK insert
             for orthanc_id, result in zip(study_paths, results):
                 db_queries.save_study_type(orthanc_id, result['display'])
+                messaging.send_notification(f'Study {orthanc_id} ready', 'study_ready')
+
     except Exception as e:
         # catch errors and print output
         print('classification of study', orthanc_ids, 'failed')
