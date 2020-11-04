@@ -146,8 +146,8 @@ def evaluate(model_image: str, dicom_paths: List[str], uuid: str, eval_ids: List
             line = str(line).replace("b'", "").replace("'", "")
 
             db_queries.add_stdout_to_eval(eval_ids, line)
-            for eval_id in eval_ids:
-                messaging.send_model_log(eval_id, line)
+            # for eval_id in eval_ids:
+            #     messaging.send_model_log(eval_id, line)
             stdout.append(line)
 
     logger_extra = {'stdout': str(stdout)}

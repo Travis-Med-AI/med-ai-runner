@@ -126,7 +126,7 @@ def evaluate_studies(model_id: List[str], batch_size: int):
                     db_queries.fail_eval(eval_id)
         except Exception as e:
             traceback.print_exc()
-            error_message = f'evaluation {eval_id} using model {model_id} failed'
+            error_message = f'evaluation using model {model_id} failed'
             logger.log_error(error_message, traceback.format_exc())
 
             for eval_id in eval_ids:
@@ -135,7 +135,7 @@ def evaluate_studies(model_id: List[str], batch_size: int):
             
     except Exception as e:
         traceback.print_exc()
-        error_message = f'evaluation {eval_id} using model {model_id} failed'
+        error_message = f'evaluation using model {model_id} failed'
 
         logger.log_error(error_message, traceback.format_exc())
         messaging.send_notification(error_message, 'eval_failed')
@@ -153,7 +153,7 @@ def evaluate_dicom(model_id: int, orthanc_id: str):
     """
     try:
         study = db_queries.get_study_by_orthanc_id(orthanc_id)
-        eval_ids = db_queries.start_study_evaluations([[study['id']]], model_id)
+        eval_ids = db_queries.start_study_evaluations([study], model_id)
         eval_id = eval_ids[0]
         logger.log(f'evaluation {eval_id} using model {model_id} started')
 

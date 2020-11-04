@@ -9,12 +9,12 @@ import logger
 import messaging
 from db_utils import query_and_fetchall, query_and_fetchone, query, join_for_in_clause
 
-def start_study_evaluations(studies: List[int], model_id: int) -> List[int]:
+def start_study_evaluations(studies: List[object], model_id: int) -> List[int]:
     """
     inserts entries into the study_evaluation table and sets them to 'RUNNING'
 
     Args:
-        studies (List[int]): a list of the primary keys of study db entries to evaluate
+        studies (List[object]): a list of the primary keys of study db entries to evaluate
         model (int): the id of the model to use in evalution
 
     Returns:
@@ -24,7 +24,7 @@ def start_study_evaluations(studies: List[int], model_id: int) -> List[int]:
     logger.log(f'starting study evaluations for {studies}')
 
     for study in studies:
-        messaging.send_notification(study, 'eval_started')
+        messaging.send_notification(study['orthancStudyId'], 'eval_started')
     # create string that contains the insert values for the studies
     # kind of janky TBH
     values = [f'(\'{study[0]}\', null, \'RUNNING\', {model_id})' for study in studies]
