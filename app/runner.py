@@ -161,7 +161,7 @@ def evaluate_dicom(model_id: int, orthanc_id: str):
         model = db_queries.get_model(model_id)
 
         # download the study from orthanc
-        study_path, _, _ = utils.get_study(orthanc_id)
+        study_path, _, _, _ = utils.get_study(orthanc_id)
 
         # evaluate study and write result to db
         results = utils.evaluate(model['image'], [study_path], str(uuid.uuid4()), eval_ids)
@@ -194,10 +194,10 @@ def classify_study(orthanc_ids: List[int], modalities: List[str]):
 
         for orthanc_id, modality in zip(orthanc_ids, modalities):
             # download study from orthanc to disk
-            study_path, patient_id, modality = utils.get_study(orthanc_id)
+            study_path, patient_id, modality, study_uid = utils.get_study(orthanc_id)
 
             # save the patient id
-            db_queries.save_patient_id(patient_id, orthanc_id, modality)
+            db_queries.save_patient_id(patient_id, orthanc_id, modality, study_uid)
 
             # add studies to modality dictionary
             studies[modality].append(study_path)

@@ -59,6 +59,7 @@ def get_study(orthanc_id: str) -> (str, str, str):
     # get study info from orthanc
     study_info_url = f'http://orthanc:8042/studies/{orthanc_id}'
     study_info = requests.get(study_info_url).json()
+    study_uid = study_info.get('MainDicomTags', {}).get('StudyInstanceUID', '')
 
     # download the dicom from orthanc
     media_url = f'http://orthanc:8042/studies/{orthanc_id}/media'
@@ -98,7 +99,7 @@ def get_study(orthanc_id: str) -> (str, str, str):
     with ZipFile(file_path, 'r') as zip_obj:
         zip_obj.extractall(out_path)
 
-    return orthanc_id, study_info.get('PatientMainDicomTags', {}).get('PatientID'), modality
+    return orthanc_id, study_info.get('PatientMainDicomTags', {}).get('PatientID'), modality, study_uid
 
 
 def evaluate(model_image: str, dicom_paths: List[str], uuid: str, eval_ids: List[int] = None) -> List[ModelOutput]:

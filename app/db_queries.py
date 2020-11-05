@@ -24,7 +24,7 @@ def start_study_evaluations(studies: List[object], model_id: int) -> List[int]:
     logger.log(f'starting study evaluations for {studies}')
 
     for study in studies:
-        messaging.send_notification(study['orthancStudyId'], 'eval_started')
+        messaging.send_notification(f"Started evaluation of study {study['orthancStudyId']}", 'eval_started')
     # create string that contains the insert values for the studies
     # kind of janky TBH
     values = [f'(\'{study[0]}\', null, \'RUNNING\', {model_id})' for study in studies]
@@ -197,18 +197,20 @@ def save_study_type(orthanc_id: str, study_type: str) -> Dict:
     query(sql)
 
 
-def save_patient_id(patient_id: str, orthanc_id: str, modality: str):
+def save_patient_id(patient_id: str, orthanc_id: str, modality: str, study_uid:str):
     """
     Saves a patient id to the database for a study
 
     Args:
         patient_id (str): the patient id from orthanc
         orthanc_id (str): the study id from orthanc
+        modality (str): the study id from orthanc
+        study_uid (str): the study uid from the dicom
     """
 
     sql = f'''
     UPDATE study
-    SET "patientId"='{patient_id}', modality='{modality}'
+    SET "patientId"='{patient_id}', modality='{modality}', "studyUid"='{study_uid}'
     WHERE "orthancStudyId"='{orthanc_id}'
     '''
 
