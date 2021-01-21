@@ -8,7 +8,7 @@ from celery import Celery
 
 import settings
 from services import logger_service, classifier_service, eval_service, experiment_service, messaging_service, model_service, orthanc_service, study_service
-
+from utils import utils as u
 
 app = Celery('runner')
 app.config_from_object(settings)
@@ -22,7 +22,7 @@ def setup_periodic_tasks(sender, **kwargs):
 
     sender.add_periodic_task(60, run_jobs.s(), name='check for jobs every 60 sec')
     sender.add_periodic_task(60, classify_studies.s(5), name='check for new studies every 60 sec')
-    sender.add_periodic_task(60, run_experiments.s(), name='check for new experiments every 60 sec')
+    sender.add_periodic_task(60, run_experiments.s(5), name='check for new experiments every 60 sec')
 
 
 @app.task
@@ -61,7 +61,7 @@ def classify_studies(batch_size: int):
 
 
 @app.task
-def run_experiments():
+def run_experiments(batch_size: int):
     """
     Monitors db for active experiments and runs them
     """
@@ -71,31 +71,30 @@ def run_experiments():
 
     # run experiments
     for experiment in experiments:
-        run_experiment.delay(dict(experiment), None)
+        messaging_service.send_notification(f'Started experiment {experiment["name"]}', 
+                                             'experiment_started')
+        # restart failed evaluations
+        eval_service.restart_failed_by_exp(experiment['id'])
+        # get experiment studies
+        studies = experiment_service.get_experiment_studies(experiment['id'])
+        # get model
+        model = model_service.get_model(experiment['modelId'])
+        for chunk in u.divide_chunks(studies, batch_size):
+            run_experiment.delay(model, chunk)
 
 
 @app.task
-def run_experiment(current_experiment, _):
+def run_experiment(experiment, model, studies):
     """
     """
     try:
-        print(type(current_experiment), current_experiment)
-
-        # notify frontend
-        messaging_service.send_notification(f'Started experiment {current_experiment["name"]}', 
-                                             'experiment_started')
-        # restart failed evaluations
-        eval_service.restart_failed_by_exp(current_experiment['id'])
-        # get experiment studies
-        studies = experiment_service.get_experiment_studies(current_experiment['id'])
-        # get model
-        model = model_service.get_model(current_experiment['modelId'])
         # run experiment
         experiment_service.run_experiment(model, studies)
         # finish experiment and set it as completed
-        experiment_service.finish_experiment(current_experiment)
+        if experiment_service.check_if_experiment_complete(experiment):
+            experiment_service.finish_experiment(experiment)
     except Exception as e:
-        experiment_service.fail_experiment(current_experiment)
+        experiment_service.fail_experiment(experiment)
 
 
 @app.task

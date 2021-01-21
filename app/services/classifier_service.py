@@ -3,7 +3,7 @@ import os
 import uuid
 
 from db import study_db, eval_db, classifier_db
-from services import messaging_service, eval_service, logger_service
+from services import messaging_service, eval_service, logger_service, orthanc_service
 
 def check_for_ct(orthanc_id: str) -> bool:
     """
@@ -22,11 +22,14 @@ def check_for_ct(orthanc_id: str) -> bool:
 def classify_studies(studies):
     # TODO: seems like a lot of nested loops here...revisit and optimize
     for modality, study_paths in studies.items():
+        [orthanc_service.download_study_dicom(orthanc_id) for orthanc_id in study_paths]
+
 
         # Check to see if the case is a CT scan by seeing if the dicom modality is 'CT'
         # or the DICOMDIR has multiple slices
         # TODO: come up with a better solution for identifying CT scans
-        if modality == 'CT' or check_for_ct(study_paths[0]):
+        
+        if modality == 'CT':
             for orthanc_id in study_paths:
                 study_db.save_study_type(orthanc_id, 'CT')
                 messaging_service.send_notification(f'Study {orthanc_id} ready', 'study_ready')
@@ -48,6 +51,8 @@ def classify_studies(studies):
         for orthanc_id, result in zip(study_paths, results):
             study_db.save_study_type(orthanc_id, result['display'])
             messaging_service.send_notification(f'Study {orthanc_id} ready', 'study_ready')
+        [orthanc_service.delete_study_dicom(orthanc_id) for orthanc_id in study_paths]
+    
 
 def fail_classification(orthanc_ids):
         # catch errors and print output

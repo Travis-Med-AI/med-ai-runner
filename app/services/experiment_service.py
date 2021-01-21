@@ -26,6 +26,10 @@ def finish_experiment(experiment):
     experiment_db.set_experiment_complete(experiment['id'])
     messaging_service.send_notification(f'Completed experiment {experiment["name"]}', 'experiment_finished')
 
+def check_if_experiment_complete(experiment):
+    evals_left = experiment_db.get_studies_for_experiment(experiment['id'])
+    return len(evals_left) < 1
+
 def fail_experiment(experiment):
     """
     """
