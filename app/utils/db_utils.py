@@ -5,7 +5,7 @@ from typing import Dict, List
 
 from psycopg2 import connect
 from psycopg2.extras import DictCursor
-import logger
+from services import logger_service
 
 
 def get_pg_connection() -> (Dict, Dict):
@@ -22,7 +22,7 @@ def get_pg_connection() -> (Dict, Dict):
         return pg_conn, pg_cur
     except Exception as e:
         traceback.print_exc()
-        logger.log_error('DB ERROR', traceback.format_exc())
+        logger_service.log_error('DB ERROR', traceback.format_exc())
         raise e
 
 
@@ -51,7 +51,7 @@ def query_and_fetchone(sql_query: str) -> Dict:
 
     except Exception as e:
         traceback.print_exc()
-        logger.log_error('DB ERROR', traceback.format_exc())
+        logger_service.log_error('DB ERROR', traceback.format_exc())
         raise e
 
 
@@ -79,7 +79,7 @@ def query_and_fetchall(sql_query: str) -> List[Dict]:
         return result
     except Exception as e:
         traceback.print_exc()
-        logger.log_error('DB ERROR', traceback.format_exc())
+        logger_service.log_error('DB ERROR', traceback.format_exc())
         raise e
 
 
@@ -101,7 +101,7 @@ def query(sql_query: str):
         pg_conn.close()
     except Exception as e:
         traceback.print_exc()
-        logger.log_error('DB ERROR', traceback.format_exc())
+        logger_service.log_error('DB ERROR', traceback.format_exc())
         raise e
 
 
