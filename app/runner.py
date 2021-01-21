@@ -89,6 +89,8 @@ def run_experiment(studies, model, experiment):
     """
     try:
         # run experiment
+        print(model)
+        print(studies)
         experiment_service.run_experiment(model, studies)
         # finish experiment and set it as completed
         if experiment_service.check_if_experiment_complete(experiment):
