@@ -18,7 +18,7 @@ def log(message: str, extras: Dict = None):
     Args:
         message (str): the message to log
     """
-    logger.info(message, extra=extras)
+    # logger.info(message, extra=extras)
 
 
 def log_error(message, stack):
@@ -31,4 +31,7 @@ def log_error(message, stack):
     extra = {
         'stack': stack
     }
-    logger.error(message, extra=extra)
+    # try:
+    #     # logger.error(message, extra=extra)
+    # except:
+    #     print('failed logging', message)
