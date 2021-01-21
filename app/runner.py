@@ -80,7 +80,7 @@ def run_experiments(batch_size: int):
         # get model
         model = model_service.get_model(experiment['modelId'])
         for chunk in u.divide_chunks(studies, batch_size):
-            run_experiment.delay(model, chunk)
+            run_experiment.delay(experiment, model, chunk)
 
 
 @app.task
