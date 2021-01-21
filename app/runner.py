@@ -79,12 +79,12 @@ def run_experiments(batch_size: int):
         studies = experiment_service.get_experiment_studies(experiment['id'])
         # get model
         model = model_service.get_model(experiment['modelId'])
-        for chunk in u.divide_chunks(studies, batch_size):
-            run_experiment.delay(experiment, model, chunk)
+        for batch in u.divide_chunks(studies, batch_size):
+            run_experiment.delay(batch, experiment, model)
 
 
 @app.task
-def run_experiment(experiment, model, studies):
+def run_experiment(studies, model, experiment):
     """
     """
     try:
