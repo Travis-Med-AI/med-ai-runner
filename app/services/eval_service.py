@@ -111,7 +111,7 @@ def evaluate(model_image: str, orthanc_ids: List[str], uuid: str, eval_ids: List
     # set env variables
     # set runtime to nvidia so that it has a connection to the cuda runtime on host
 
-    runtime = 'nvidia' if check_gpu() else ''
+    runtime = 'nvidia'
 
     [orthanc_service.download_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
