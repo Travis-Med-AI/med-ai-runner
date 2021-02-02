@@ -117,7 +117,11 @@ def evaluate(model_image: str, orthanc_ids: List[str], uuid: str, eval_ids: List
 
     container = client.containers.run(image=model_image,
                                       detach=True,
-                                      environment={'FILENAMES': filenames, 'ID': uuid},
+                                      environment={
+                                          'FILENAMES': filenames, 
+                                          'ID': uuid, 
+                                          'NVIDIA_DRIVER_CAPABILITIES': 'compute,utility',
+                                          'NVIDIA_VISIBLE_DEVICES': 'all'},
                                       runtime=runtime,
                                       network='ai-network',
                                       volumes=volumes,
