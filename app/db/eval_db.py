@@ -201,7 +201,7 @@ def start_study_evaluations(studies: List[object], model_id: int) -> List[int]:
         messaging_service.send_notification(f"Started evaluation of study {study['orthancStudyId']}", 'eval_started')
     # create string that contains the insert values for the studies
     # kind of janky TBH
-    values = [f'(\'{study[0]}\', null, \'RUNNING\', {model_id})' for study in studies]
+    values = [f'(\'{study["id"]}\', null, \'RUNNING\', {model_id})' for study in studies]
 
     if len(studies) == 0:
         return []
