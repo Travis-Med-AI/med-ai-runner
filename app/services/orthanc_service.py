@@ -75,6 +75,14 @@ def get_modality(orthanc_id: str) -> str:
 
     return series_info.get('MainDicomTags', {} ).get('Modality')
 
+def get_study_info(orthanc_id: str):
+    study_info_url = f'http://orthanc:8042/studies/{orthanc_id}'
+    study_info = requests.get(study_info_url).json()
+    study_uid = study_info.get('MainDicomTags', {}).get('StudyInstanceUID', '')
+
+    return orthanc_id, study_info.get('PatientMainDicomTags', {}).get('PatientID'), study_uid
+
+
 def get_orthanc_studies():
     """
     Retrieve orthanc study ids from orthanc

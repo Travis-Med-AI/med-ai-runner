@@ -1,6 +1,7 @@
 from db import study_db, eval_db
 from collections import defaultdict
 from services import orthanc_service
+import time
 
 def get_studies_for_model(model_id: int, batch_size: int):
     studies = study_db.get_studies_for_model(model_id)
@@ -29,9 +30,11 @@ def get_study_modalities(orthanc_ids, modalities):
     studies = defaultdict(list)
 
     for orthanc_id, modality in zip(orthanc_ids, modalities):
+        t0 = time.time()
         # download study from orthanc to disk
         study_path, patient_id, modality, study_uid = orthanc_service.get_study(orthanc_id)
-
+        t1 = time.time()
+        print('getting study took', t1-t0)
         # save the patient id
         study_db.save_patient_id(patient_id, orthanc_id, modality, study_uid)
 
