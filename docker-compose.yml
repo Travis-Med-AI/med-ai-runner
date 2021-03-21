@@ -30,8 +30,7 @@ services:
             dockerfile: dockerfiles/orthanc.Dockerfile
         image: jodogne/orthanc-plugins:1.7.1
         restart: unless-stopped
-        volumes:
-        - orthanc-volume:/var/lib/orthanc/db
+        volumes: ["orthanc-storage:/var/lib/orthanc/db:Z"]
         ports:
         - 4243:4242
         - 8042:8042
@@ -46,9 +45,9 @@ volumes:
     ai-images:
         external:
             name: ai-images
-    orthanc-volume:
+    orthanc-storage:
         external:
-            name: orthanc-volume
+            name: orthanc-storage
 # volumes:
 #     orthanc-volume:
 #         name: orthanc-volume

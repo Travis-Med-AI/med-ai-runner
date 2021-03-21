@@ -10,16 +10,6 @@ def get_running_experiments():
 def get_experiment_studies(experiment_id):
     return experiment_db.get_studies_for_experiment(experiment_id)
 
-
-def run_experiment(model, studies):
-    """
-    takes in model  and studies and runs through experiment
-    """
-    
-    eval_ids = eval_service.get_eval_ids(model, studies)
-
-    eval_service.evaluate_studies(studies, model, eval_ids)
-
 def finish_experiment(experiment):
     """
     """
@@ -38,3 +28,20 @@ def fail_experiment(experiment):
     traceback.print_exc()
     experiment_id = experiment['id']
     logger_service.log_error(f'experiment {experiment_id} failed', traceback.format_exc())
+
+def run_experiment(studies, model, experiment):
+    """
+    """
+    try:
+        print('\n\n\nstarting experiment batch\n\n\n')
+        # run experiment
+        print(model)
+        print(studies)
+        eval_ids = eval_service.get_eval_ids(model, studies)
+
+        eval_service.evaluate_studies(studies, model, eval_ids)
+        # finish experiment and set it as completed
+        if check_if_experiment_complete(experiment):
+            finish_experiment(experiment)
+    except Exception as e:
+        fail_experiment(experiment)

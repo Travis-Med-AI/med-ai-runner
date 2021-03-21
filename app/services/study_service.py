@@ -12,7 +12,6 @@ def get_studies_for_model(model_id: int, batch_size: int):
 def get_new_studies(batch_size):
     # get orthanc study ids from orthanc
     orthanc_studies = orthanc_service.get_orthanc_studies()
-    
 
     # get ids of studies that have already been processed and saved to the db
     db_orthanc_ids = map(lambda x: x['orthancStudyId'], study_db.get_studies())

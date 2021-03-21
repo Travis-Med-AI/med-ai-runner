@@ -33,8 +33,6 @@ def evaluate_studies(studies, model, eval_ids):
     # used as the file path for saving dicoms
     try:
         orthanc_ids = [study['orthancStudyId'] for study in studies]
-        print('this is what I think orthanc ids are', orthanc_ids)
-
         results = evaluate(model['image'], orthanc_ids, str(uuid.uuid4()), eval_ids)
 
         # loop through the results of the classifier and save the classifcation to the DB

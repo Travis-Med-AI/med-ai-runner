@@ -10,6 +10,7 @@ import time
 import settings
 from services import logger_service, classifier_service, eval_service, experiment_service, messaging_service, model_service, orthanc_service, study_service
 from utils import utils as u
+import multiprocessing
 
 app = Celery('runner')
 app.config_from_object(settings)
@@ -21,9 +22,9 @@ def setup_periodic_tasks(sender, **kwargs):
     eval_service.remove_orphan_evals()
     study_service.remove_orphan_studies()
 
-    sender.add_periodic_task(10, run_jobs.s(), name='check for jobs every 60 sec')
-    sender.add_periodic_task(10, classify_studies.s(25), name='check for new studies every 60 sec')
-    sender.add_periodic_task(10, run_experiments.s(5), name='check for new experiments every 60 sec')
+    sender.add_periodic_task(10, run_jobs.s(), name='check for jobs every 10 sec')
+    sender.add_periodic_task(10, classify_studies.s(5), name='classify new experiments every 10 sec')
+    sender.add_periodic_task(10, run_experiments.s(1), name='run experiments every 10 sec')
 
 
 @app.task
@@ -49,18 +50,20 @@ def classify_studies(batch_size: int):
     Args:
         batch_size (int): the number of images to feed into the classifier at a time
     """
+
     t0 = time.time()
     new_studies = study_service.get_new_studies(batch_size)
 
     # classify the downloaded studies
     if len(new_studies) < 1:
+        print('no new studies found')
         return
     t1 = time.time()
-    print(f'getting studies took {t1-t0}')
-    t0 = time.time()
+    print(f'getting studies took for classification  {t1-t0}')
 
+    t0 = time.time()
     # get the modalities for all the orthanc studies
-    modalities = [orthanc_service.get_modality(orthanc_id) for orthanc_id in new_studies]
+    modalities = [orthanc_service.get_modality(study) for study in new_studies]
     t1 = time.time()
     print(f'getting modalities took {t1-t0}') 
     try:
@@ -70,7 +73,7 @@ def classify_studies(batch_size: int):
         # set up dictionary that splits studies by modality as modality: list(study_path)
         studies = study_service.get_study_modalities(new_studies, modalities)
         t1 = time.time()
-        print(f'getting modalities took {t1-t0}') 
+        print(f'getting study modalities took {t1-t0}') 
         # loop through and classify all studies
 
         t0 = time.time()
@@ -102,24 +105,8 @@ def run_experiments(batch_size: int):
         studies = experiment_service.get_experiment_studies(experiment['id'])
         # get model
         model = model_service.get_model(experiment['modelId'])
-        for batch in u.divide_chunks(studies, batch_size):
-            batch = [dict(study) for study in batch]
-            run_experiment(batch, dict(model), dict(experiment))
-
-
-def run_experiment(studies, model, experiment):
-    """
-    """
-    try:
-        # run experiment
-        print(model)
-        print(studies)
-        experiment_service.run_experiment(model, studies)
-        # finish experiment and set it as completed
-        if experiment_service.check_if_experiment_complete(experiment):
-            experiment_service.finish_experiment(experiment)
-    except Exception as e:
-        experiment_service.fail_experiment(experiment)
+        batch = studies[:batch_size]
+        experiment_service.run_experiment(batch, dict(model), dict(experiment))
 
 
 @app.task
@@ -184,3 +171,4 @@ def evaluate_dicom(model_id: int, orthanc_id: str):
     except Exception as e:
         # catch errors and print output
         eval_service.fail_dicom_eval(orthanc_id, model_id, eval_id)
+

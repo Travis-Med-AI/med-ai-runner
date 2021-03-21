@@ -27,10 +27,6 @@ def get_study(orthanc_id: str) -> (str, str, str):
     study_info = requests.get(study_info_url).json()
     study_uid = study_info.get('MainDicomTags', {}).get('StudyInstanceUID', '')
 
-    # download the dicom from orthanc
-    media_url = f'http://orthanc:8042/studies/{orthanc_id}/media'
-    study = requests.get(media_url)
-
     # get the dicom's series ID from study metadata
     series_id = list(study_info.get('Series', {}))[0]
 
