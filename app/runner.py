@@ -157,7 +157,7 @@ def evaluate_dicom(model_id: int, orthanc_id: str):
         model = model_service.get_model(model_id)
 
         # download the study from orthanc
-        study_path, _, _, _ = orthanc_service.get_study(orthanc_id)
+        study_path, _, _, _, _ = orthanc_service.get_study(orthanc_id)
 
         # evaluate study
         results = eval_service.evaluate(model['image'], [study_path], str(uuid.uuid4()), [eval_id])

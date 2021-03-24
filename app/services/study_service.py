@@ -31,11 +31,11 @@ def get_study_modalities(orthanc_ids, modalities):
     for orthanc_id, modality in zip(orthanc_ids, modalities):
         t0 = time.time()
         # download study from orthanc to disk
-        study_path, patient_id, modality, study_uid = orthanc_service.get_study(orthanc_id)
+        study_path, patient_id, modality, study_uid, series_uid = orthanc_service.get_study(orthanc_id)
         t1 = time.time()
         print('getting study took', t1-t0)
         # save the patient id
-        study_db.save_patient_id(patient_id, orthanc_id, modality, study_uid)
+        study_db.save_patient_id(patient_id, orthanc_id, modality, study_uid, series_uid)
 
         # add studies to modality dictionary
         studies[modality].append(study_path)

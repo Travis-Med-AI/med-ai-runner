@@ -16,7 +16,7 @@ def check_for_ct(orthanc_id: str) -> bool:
         :bool: a boolean of whether or not it is a CT scan
     """
     # Check to see if the dicomdir has multiple images
-    path = f'/tmp/{orthanc_id}/IMAGES'
+    path = f'/tmp/{orthanc_id}'
     return len(os.listdir(path)) > 1
 
 def classify_studies(studies):

@@ -90,7 +90,7 @@ def get_studies() -> List[Dict]:
 
     return query_and_fetchall(sql)
 
-def save_patient_id(patient_id: str, orthanc_id: str, modality: str, study_uid:str):
+def save_patient_id(patient_id: str, orthanc_id: str, modality: str, study_uid:str, series_uid: str):
     """
     Saves a patient id to the database for a study
 
@@ -103,7 +103,7 @@ def save_patient_id(patient_id: str, orthanc_id: str, modality: str, study_uid:s
 
     sql = f'''
     UPDATE study
-    SET "patientId"='{patient_id}', modality='{modality}', "studyUid"='{study_uid}'
+    SET "patientId"='{patient_id}', modality='{modality}', "studyUid"='{study_uid}', "seriesUid"='{series_uid}'
     WHERE "orthancStudyId"='{orthanc_id}'
     '''
 
