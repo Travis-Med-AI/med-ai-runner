@@ -28,7 +28,7 @@ def classify_studies(studies):
         # or the DICOMDIR has multiple slices
         # TODO: come up with a better solution for identifying CT scans
         
-        if modality == 'CT':
+        if modality == 'CT' or modality != 'XR':
             for orthanc_id in study_paths:
                 study_db.save_study_type(orthanc_id, 'CT')
                 messaging_service.send_notification(f'Study {orthanc_id} ready', 'study_ready')
