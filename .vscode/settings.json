@@ -16,5 +16,5 @@
         "titleBar.inactiveForeground": "#15202b99"
     },
     "peacock.color": "#f9e64f",
-    "python.pythonPath": "/Users/travisclarke/opt/anaconda3/envs/med-ai-runner/bin/python"
+    "python.pythonPath": "/home/travis/anaconda3/envs/med-ai-runner/bin/python"
 }

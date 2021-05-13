@@ -95,6 +95,7 @@ def download_study_dicom(orthanc_id):
     file_path = f'{out_path}.zip'
     # write the downloaded study to disk
     open(file_path, 'wb').write(study.content)
+    print(f'writing to {file_path}')
 
     with ZipFile(file_path, 'r') as zip_obj:
         zip_obj.extractall(out_path)

@@ -1,10 +1,32 @@
 version: '2.3'
 services: 
+    worker_gpu:
+        build:
+            context: .
+            dockerfile: ./dockerfiles/Dockerfile
+        command: python -m celery -A runner worker -l info -E -Q celery -c 1
+        restart: unless-stopped
+        working_dir: /app
+        volumes:
+        - ./app:/app
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ai-images:/tmp
     worker:
         build:
             context: .
             dockerfile: ./dockerfiles/Dockerfile
-        command: python -m celery -A runner worker -l info
+        command: python -m celery -A runner worker -l info -E -Q no_gpu
+        restart: unless-stopped
+        working_dir: /app
+        volumes:
+        - ./app:/app
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ai-images:/tmp
+    results:
+        build:
+            context: .
+            dockerfile: ./dockerfiles/Dockerfile
+        command: python results_processor.py
         restart: unless-stopped
         working_dir: /app
         volumes:
@@ -16,7 +38,7 @@ services:
         build:
             context: .
             dockerfile: ./dockerfiles/Dockerfile
-        command: python -m celery -A runner beat -l info
+        command: python -m celery -A runner beat -l debug
         restart: unless-stopped
         working_dir: /app
         volumes:

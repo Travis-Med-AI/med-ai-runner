@@ -5,8 +5,12 @@ from services import logger_service
 import json
 import traceback
 from medaimodels import ModelOutput
+import settings
 
-def send_message(queue: str, message:str):
+CLASSIFIER_QUEUE = 'classifier_results'
+EVAL_QUEUE = 'eval_results'
+
+def send_message(queue: str, message):
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
 
@@ -33,17 +37,16 @@ def send_model_log(eval_id: str, line: str):
     send_message('model_log', message)
 
 
-def get_result(redis_connection, eval_id: int) -> ModelOutput:
-    """
-    Retrieve Numpy array from Redis key
+def start_result_queue():
+    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
 
-    Args:
-        redis_connection (:obj): the redis connection
-        study_id (int): the ID of the study
+    channel = connection.channel()
+    channel.queue_declare(EVAL_QUEUE)
+    channel.queue_declare(CLASSIFIER_QUEUE)
 
-    Returns
-        :obj:`ModelOutput`: the output received from redis
-    """
-    output = redis_connection.get(eval_id)
-    print('here is the output \n\n\n\n', output)
-    return json.loads(output)
+
+def get_channel():
+    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    channel = connection.channel()
+
+    return channel
