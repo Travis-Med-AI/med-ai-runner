@@ -1,6 +1,7 @@
 {
     "Name" : "Orthanc in Docker",
     "Plugins": ["/usr/local/share/orthanc/plugins"],
+    "StorageDirectory" : "/var/lib/orthanc/db",
     "RemoteAccessAllowed" : true,
     "AuthenticationEnabled": false,
     "DicomAet": "AI",

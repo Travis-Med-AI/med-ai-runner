@@ -5,14 +5,17 @@ from services import logger_service
 import json
 import traceback
 from medaimodels import ModelOutput
-import settings
+import services
 
 CLASSIFIER_QUEUE = 'classifier_results'
 EVAL_QUEUE = 'eval_results'
+LOG_QUEUE = 'log_results'
+
 
 def send_message(queue: str, message):
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+        rabbit_url = services.settings_service.get_rabbitmq_url()
+        connection = pika.BlockingConnection(pika.URLParameters(rabbit_url))
 
         channel = connection.channel()
         channel.queue_declare(queue)
@@ -20,10 +23,10 @@ def send_message(queue: str, message):
         channel.basic_publish(exchange='',
                                 routing_key=queue,
                                 body=message)
-        logger_service.log(f'sent message to {queue}: {message}')
+        print(f'sent message to {queue}: {message}')
         connection.close()
     except:
-        logger_service.log_error(f'Failed sending message to {queue}, message: {message}', traceback.format_exc())
+        print(f'Failed sending message to {queue}, message: {message}', traceback.format_exc())
 
 
 def send_notification(msg: str, notification_type: str):
@@ -38,7 +41,8 @@ def send_model_log(eval_id: str, line: str):
 
 
 def start_result_queue():
-    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    url = services.settings_service.get_rabbitmq_url()
+    connection = pika.BlockingConnection(pika.URLParameters(url))
 
     channel = connection.channel()
     channel.queue_declare(EVAL_QUEUE)
@@ -46,7 +50,8 @@ def start_result_queue():
 
 
 def get_channel():
-    connection = pika.BlockingConnection(pika.ConnectionParameters('rabbitmq'))
+    url = services.settings_service.get_rabbitmq_url()
+    connection = pika.BlockingConnection(pika.URLParameters(url))
     channel = connection.channel()
 
     return channel

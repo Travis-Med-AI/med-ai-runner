@@ -2,6 +2,8 @@
 
 import traceback
 from typing import Dict, List
+from urllib.parse import urlparse
+import os
 
 from psycopg2 import connect
 from psycopg2.extras import DictCursor
@@ -16,7 +18,24 @@ def get_pg_connection() -> (Dict, Dict):
         (Dict, Dict): the pg connection and cursor
     """
     try:
-        pg_conn = connect(host='postgres-db', user='test', password='test', dbname='ai')
+        postgres_url = os.getenv('POSTGRES_URL') 
+        if(postgres_url):
+
+            result = urlparse.urlparse(postgres_url)
+            username = result.username
+            password = result.password
+            database = result.path[1:]
+            hostname = result.hostname
+            port = result.port
+            pg_conn = psycopg2.connect(
+                database = database,
+                user = username,
+                password = password,
+                host = hostname,
+                port = port
+            )
+        else:
+            pg_conn = connect(host='postgres-db', user='test', password='test', dbname='ai')
         pg_cur = pg_conn.cursor(cursor_factory=DictCursor)
 
         return pg_conn, pg_cur
@@ -26,7 +45,7 @@ def get_pg_connection() -> (Dict, Dict):
         raise e
 
 
-def query_and_fetchone(sql_query: str) -> Dict:
+def query_and_fetchone(sql_query: str, *args) -> Dict:
     """
     takes a sql query string and returns the first row of the results of the query
 
@@ -39,7 +58,7 @@ def query_and_fetchone(sql_query: str) -> Dict:
     try:
         pg_conn, pg_cur = get_pg_connection()
 
-        pg_cur.execute(sql_query)
+        pg_cur.execute(sql_query, args)
 
         result = pg_cur.fetchone()
 
@@ -55,7 +74,7 @@ def query_and_fetchone(sql_query: str) -> Dict:
         raise e
 
 
-def query_and_fetchall(sql_query: str) -> List[Dict]:
+def query_and_fetchall(sql_query: str, *args) -> List[Dict]:
     """
     takes a sql query string and returns the all rows of the results of the query
 
@@ -68,7 +87,7 @@ def query_and_fetchall(sql_query: str) -> List[Dict]:
     try:
         pg_conn, pg_cur = get_pg_connection()
 
-        pg_cur.execute(sql_query)
+        pg_cur.execute(sql_query, args)
 
         result = pg_cur.fetchall()
 
@@ -83,7 +102,7 @@ def query_and_fetchall(sql_query: str) -> List[Dict]:
         raise e
 
 
-def query(sql_query: str):
+def query(sql_query: str, *args):
     """
     takes a sql query string and returns the all rows of the results of the query
 
@@ -94,7 +113,7 @@ def query(sql_query: str):
     try:
         pg_conn, pg_cur = get_pg_connection()
 
-        pg_cur.execute(sql_query)
+        pg_cur.execute(sql_query, args)
 
         pg_conn.commit()
         pg_cur.close()

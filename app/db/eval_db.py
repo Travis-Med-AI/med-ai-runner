@@ -9,7 +9,7 @@ from utils.db_utils import query_and_fetchall, query_and_fetchone, query, join_f
 from services import logger_service, messaging_service
 
 
-def add_stdout_to_eval(eval_ids: List[int], line: str):
+def add_stdout_to_eval(eval_ids: List[int], lines: List[str]):
     studies = get_study_evals(eval_ids)
 
     stdout = []
@@ -17,14 +17,14 @@ def add_stdout_to_eval(eval_ids: List[int], line: str):
     if studies[0]['stdout'] is not None:
         stdout = studies[0]['stdout']
 
-    stdout.append(line)
+    stdout = stdout + lines
     sql = f'''
     UPDATE study_evaluation
-    SET stdout=('{json.dumps(stdout)}')
+    SET stdout=(%s)
     WHERE id in ({join_for_in_clause(eval_ids)})
     '''
 
-    query(sql)
+    query(sql, json.dumps(stdout))
 
 def get_study_evals(eval_ids: List[int]):
     sql = f'''

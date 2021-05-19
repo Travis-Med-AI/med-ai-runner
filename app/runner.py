@@ -13,7 +13,7 @@ from utils import utils as u
 import multiprocessing
 
 runner = Celery('runner')
-runner.config_from_object(settings)
+runner.config_from_object(settings.Settings())
 runner.control.purge()
 eval_service.remove_orphan_evals()
 study_service.remove_orphan_studies()
@@ -174,7 +174,7 @@ def evaluate_dicom(model_id: int, orthanc_id: str):
         
     except Exception as e:
         # catch errors and print output
-        eval_service.fail_dicom_eval(orthanc_id, model_id, eval_id)
+        eval_service.fail_dicom_eval(eval_id)
 
 @runner.task
 def quickstart_models():

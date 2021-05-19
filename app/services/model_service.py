@@ -1,6 +1,6 @@
 from db import model_db
 import docker
-from services import messaging_service
+from services import messaging_service, settings_service
 
 
 def get_model(model_id):
@@ -27,11 +27,12 @@ def quickstart_model(model):
                                         'QUEUE': model['id'],
                                         'RESULT_QUEUE': messaging_service.EVAL_QUEUE,
                                         'NVIDIA_DRIVER_CAPABILITIES': 'compute,utility',
+                                        'RABBITMQ_URL': settings_service.get_rabbitmq_url(),
                                         'NVIDIA_VISIBLE_DEVICES': 'all'},
                                       runtime=runtime,
                                       network='ai-network',
                                       volumes=volumes,
-                                      shm_size='11G')
+                                      shm_size='12G')
     print('started container. now waiting for stuff')
     for line in container.logs(stream=True):
         line = str(line).replace("b'", "").replace("'", "")

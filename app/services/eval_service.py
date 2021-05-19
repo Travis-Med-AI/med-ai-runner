@@ -76,6 +76,7 @@ def evaluate_with_quickstart(model,
         'ids': db_ids,
         'type': 'EVAL'
     }
+    print(f'sending message {message} to {str(model["id"])}')
     messaging_service.send_message(str(model['id']), json.dumps(message))
 
 
@@ -147,8 +148,9 @@ def evaluate(model,
     for line in container.logs(stream=True):
         if db_ids is not None: 
             line = str(line).replace("b'", "").replace("'", "")
-            eval_db.add_stdout_to_eval(db_ids, line)
             stdout.append(line)
+    
+    # eval_db.add_stdout_to_eval(db_ids, stdout)
     
     [orthanc_service.delete_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
@@ -159,9 +161,9 @@ def evaluate(model,
 def write_eval_results(results, eval_id):
     eval_db.update_eval_status_and_save(results, eval_id)
 
-def fail_dicom_eval(orthanc_id, model_id, eval_id):
+def fail_dicom_eval(eval_id):
     traceback.print_exc()
-    error_message = f'evaluation for study {orthanc_id} using model {model_id} failed'
+    error_message = f'evaluation for study {eval_id} failed'
     logger_service.log_error(error_message, traceback.format_exc())
     # update eval status to FAILED
     eval_db.fail_eval(eval_id)
@@ -176,3 +178,6 @@ def check_gpu():
 
 def remove_orphan_evals():
     eval_db.remove_orphan_evals()
+
+def add_stdout_to_eval(ids, stdout):
+    eval_db.add_stdout_to_eval(ids, stdout)

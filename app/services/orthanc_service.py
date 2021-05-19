@@ -9,6 +9,7 @@ import requests
 import redis
 import docker
 from medaimodels import ModelOutput
+from settings import settings_service
 
 
 def get_study(orthanc_id: str) -> (str, str, str, str):
@@ -28,13 +29,14 @@ def get_study(orthanc_id: str) -> (str, str, str, str):
     # get the dicom's series ID from study metadata
 
     # download the series metadata from orthanc
-    series_url = f'http://orthanc:8042/series/{orthanc_id}'
+    orthanc_url = settings_service.get_orthanc_url()
+    series_url = f'{orthanc_url}/series/{orthanc_id}'
     series_info = requests.get(series_url).json()
     series_uid = series_info.get('MainDicomTags', {}).get('SeriesInstanceUID', '')
 
     study_id = series_info['ParentStudy']
 
-    study_info_url = f'http://orthanc:8042/studies/{study_id}'
+    study_info_url = f'{orthanc_url}/studies/{study_id}'
     study_info = requests.get(study_info_url).json()
     study_uid = study_info.get('MainDicomTags', {}).get('StudyInstanceUID', '')
 
@@ -43,7 +45,7 @@ def get_study(orthanc_id: str) -> (str, str, str, str):
 
     # get a preview of the first instance in the series
     instance_id = list(series_info.get('Instances', {}))[0]
-    study_png = requests.get(f'http://orthanc:8042/instances/{instance_id[0]}/preview', stream=True)
+    study_png = requests.get(f'{orthanc_url}/instances/{instance_id[0]}/preview', stream=True)
 
     # define download path for study
     out_path = f'/tmp/{orthanc_id}'
@@ -66,7 +68,8 @@ def get_modality(orthanc_id: str) -> str:
     Returns
         :str: the modality of the study
     """
-    preview_url = f'http://orthanc:8042/series/{orthanc_id}'
+    orthanc_url = settings_service.get_orthanc_url()
+    preview_url = f'{orthanc_url}/series/{orthanc_id}'
     series_info = requests.get(preview_url).json()
 
     return series_info.get('MainDicomTags', {} ).get('Modality')
@@ -79,8 +82,8 @@ def get_orthanc_studies():
     Returns
         :obj:`list` of :obj:`int`: a list of the orhthan IDs
     """
-
-    url = 'http://orthanc:8042/series'
+    orthanc_url = settings_service.get_orthanc_url()
+    url = f'{orthanc_url}/series'
     studies = requests.get(url)
 
     return studies.json()
@@ -88,7 +91,8 @@ def get_orthanc_studies():
 def download_study_dicom(orthanc_id):
     """
     """
-    media_url = f'http://orthanc:8042/series/{orthanc_id}/archive'
+    orthanc_url = settings_service.get_orthanc_url()
+    media_url = f'{orthanc_url}/series/{orthanc_id}/archive'
     print(f'downloading {orthanc_id} from orthanc using {media_url}')
     study = requests.get(media_url)
     out_path = f'/tmp/{orthanc_id}'
