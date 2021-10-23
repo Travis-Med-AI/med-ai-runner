@@ -23,6 +23,20 @@ def get_studies_for_experiment(experiment_id):
     return studies
 
 
+def get_running_studies_for_experiment(experiment_id):
+    """
+    """
+    sql = f'''
+    SELECT  distinct s.* FROM study s
+    LEFT JOIN study_evaluation se on s.id = se."studyId"
+    INNER JOIN experiment_studies_study es on s.id = es."studyId"
+    WHERE se.status='RUNNING'
+    '''
+
+    studies = query_and_fetchall(sql)
+
+    return studies
+
 def get_running_experiments():
     """
     """

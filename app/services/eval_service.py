@@ -97,7 +97,7 @@ def evaluate(model,
         :rtype: List[ModelOutput]
         A list of the outputs of the evaluating model
     """
-    if(model['quickStart'] and model['running']):
+    if(model['quickStart']):
         print('running with quickstart')
         evaluate_with_quickstart(model, orthanc_ids, uuid, db_ids)
         return
@@ -152,7 +152,7 @@ def evaluate(model,
     
     # eval_db.add_stdout_to_eval(db_ids, stdout)
     
-    [orthanc_service.delete_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
+    # [orthanc_service.delete_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
     logger_extra = {'stdout': str(stdout)}
     logger_service.log(f'Finished model execution for evaluation {uuid}', logger_extra)

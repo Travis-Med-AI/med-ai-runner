@@ -19,7 +19,8 @@ eval_service.remove_orphan_evals()
 study_service.remove_orphan_studies()
 model_service.turn_off_all_models()
 messaging_service.start_result_queue()
-
+orthanc_service.delete_all_downloaded()
+# study_service.refresh_orthanc_data()
 
 @runner.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
@@ -103,16 +104,23 @@ def run_experiments(batch_size: int):
 
     # run experiments
     for experiment in experiments:
-        messaging_service.send_notification(f'Started experiment {experiment["name"]}', 
-                                             'experiment_started')
+        if experiment_service.check_if_experiment_complete(experiment):
+            experiment_service.finish_experiment(experiment)
         # restart failed evaluations
-        eval_service.restart_failed_by_exp(experiment['id'])
         # get experiment studies
         studies = experiment_service.get_experiment_studies(experiment['id'])
         # get model
         model = model_service.get_model(experiment['modelId'])
+
+        if len(studies) < 1:
+            eval_service.restart_failed_by_exp(experiment['id'])
+            studies = experiment_service.get_experiment_studies(experiment['id'])
+
         batch = studies[:batch_size]
-        experiment_service.run_experiment(batch, dict(model), dict(experiment))
+        running_studies = experiment_service.get_running_studies(experiment['id'])
+
+        if len(batch) > 0 and len(running_studies) < 5:
+            experiment_service.run_experiment(batch, dict(model), dict(experiment))
 
 
 @runner.task
@@ -166,7 +174,7 @@ def evaluate_dicom(model_id: int, orthanc_id: str):
 
         print('downloading dicom')
         # download the study from orthanc
-        study_path, _, _, _, _ = orthanc_service.get_study(orthanc_id)
+        study_path, _, _, _, _, _, _ = orthanc_service.get_study(orthanc_id)
         print('evaluating...')
         # evaluate study
         eval_service.evaluate(model, [study_path], str(uuid.uuid4()), [eval_id])
@@ -199,4 +207,3 @@ def quickstart_models():
     except Exception as e:
         print('quickstart failed')
         traceback.print_exc()
-

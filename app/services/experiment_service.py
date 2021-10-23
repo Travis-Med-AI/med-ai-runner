@@ -10,15 +10,19 @@ def get_running_experiments():
 def get_experiment_studies(experiment_id):
     return experiment_db.get_studies_for_experiment(experiment_id)
 
+
 def finish_experiment(experiment):
     """
     """
     experiment_db.set_experiment_complete(experiment['id'])
     messaging_service.send_notification(f'Completed experiment {experiment["name"]}', 'experiment_finished')
 
+
 def check_if_experiment_complete(experiment):
     evals_left = experiment_db.get_studies_for_experiment(experiment['id'])
-    return len(evals_left) < 1
+    evals_running = experiment_db.get_running_studies_for_experiment(experiment['id'])
+    return len(evals_left) + len(evals_running) < 1
+
 
 def fail_experiment(experiment):
     """
@@ -28,6 +32,11 @@ def fail_experiment(experiment):
     traceback.print_exc()
     experiment_id = experiment['id']
     logger_service.log_error(f'experiment {experiment_id} failed', traceback.format_exc())
+
+
+def get_running_studies(experimentId):
+    return experiment_db.get_running_studies_for_experiment(experimentId)
+
 
 def run_experiment(studies, model, experiment):
     """
@@ -41,7 +50,7 @@ def run_experiment(studies, model, experiment):
 
         eval_service.evaluate_studies(studies, model, eval_ids)
         # finish experiment and set it as completed
-        if check_if_experiment_complete(experiment):
-            finish_experiment(experiment)
+
     except Exception as e:
-        fail_experiment(experiment)
+        # fail_experiment(experiment)
+        print('lol something failed on experiment')

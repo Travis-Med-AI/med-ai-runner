@@ -11,24 +11,24 @@ class Settings():
     beat_schedule = {
     'run_jobs': {
             'task': 'runner.run_jobs',
-            'schedule': 15,  # every 15 sec for test,
+            'schedule': 5,  # every 15 sec for test,
             'options': {'queue' : 'celery'},  # options are mapped to apply_async options
         },
         'classify_studies': {
             'task': 'runner.classify_studies',
-            'schedule': 15,  # every 15 sec for test,
-            'args': (5,),
+            'schedule': 5,  # every 15 sec for test,
+            'args': (30,),
             'options': {'queue' : 'celery'},  # options are mapped to apply_async options
         },
         'run_experiments': {
             'task': 'runner.run_experiments',
             'args': (1,),
-            'schedule': 15,  # every 15 sec for test
+            'schedule': 5,  # every 15 sec for test
             'options': {'queue' : 'celery'},  # options are mapped to apply_async options
         },
         'quickstart_models': {
             'task': 'runner.quickstart_models',
-            'schedule': 15,  # every 15 sec for test
+            'schedule': 5,  # every 15 sec for test
             'options': {'queue' : 'no_gpu'},  # options are mapped to apply_async options
         },
     }

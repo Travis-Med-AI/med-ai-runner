@@ -3,6 +3,7 @@ from collections import defaultdict
 from services import orthanc_service
 import time
 
+
 def get_studies_for_model(model_id: int, batch_size: int):
     studies = study_db.get_studies_for_model(model_id)
     # trim studies down to batch size
@@ -31,16 +32,30 @@ def get_study_modalities(orthanc_ids, modalities):
     for orthanc_id, modality in zip(orthanc_ids, modalities):
         t0 = time.time()
         # download study from orthanc to disk
-        study_path, patient_id, modality, study_uid, series_uid = orthanc_service.get_study(orthanc_id)
+        study_path, patient_id, modality, study_uid, series_uid, accession, description = orthanc_service.get_study(orthanc_id)
         t1 = time.time()
         print('getting study took', t1-t0)
         # save the patient id
-        study_db.save_patient_id(patient_id, orthanc_id, modality, study_uid, series_uid)
+        study_db.save_patient_id(patient_id, orthanc_id, modality, study_uid, series_uid, accession)
 
         # add studies to modality dictionary
         studies[modality].append(study_path)
     
     return studies
 
+def refresh_orthanc_data():
+    studies = study_db.get_studies()
+    print('updating studies')
+    for study in studies:
+        orthanc_id = study['orthancStudyId']
+        # download study from orthanc to disk
+        study_path, patient_id, modality, study_uid, series_uid, accession, description = orthanc_service.get_study(orthanc_id)
+        # save the patient id
+        study_db.save_patient_id(patient_id, orthanc_id, modality, study_uid, series_uid, accession)
+        print(f'updated study {series_uid} with accession: {accession} and description: {description}')
+
 def remove_orphan_studies():
     study_db.remove_orphan_studies()
+
+def get_study_by_eval_id(eval_id):
+    return study_db.get_study_by_eval_id(eval_id)

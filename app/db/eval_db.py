@@ -10,6 +10,7 @@ from services import logger_service, messaging_service
 
 
 def add_stdout_to_eval(eval_ids: List[int], lines: List[str]):
+    print('evalids are ', eval_ids)
     studies = get_study_evals(eval_ids)
 
     stdout = []
@@ -94,7 +95,7 @@ def get_failed_eval_ids_by_exp(experimentId: int) -> List[int]:
     sql = f'''
     SELECT * FROM study_evaluation se
     INNER JOIN experiment_studies_study es on es."studyId" = se."studyId"
-    WHERE es."experimentId" = {experimentId} 
+    WHERE es."experimentId" = {experimentId} and se."status"='FAILED'
     '''
 
     evals = query_and_fetchall(sql)

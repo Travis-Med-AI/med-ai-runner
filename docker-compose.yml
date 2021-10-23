@@ -6,11 +6,12 @@ services:
             dockerfile: ./dockerfiles/Dockerfile
         command: python -m celery -A runner worker -l info -E -Q celery -c 1
         restart: unless-stopped
+
         working_dir: /app
         volumes:
         - ./app:/app
         - /var/run/docker.sock:/var/run/docker.sock
-        - ai-images:/tmp
+        - ai-images:/opt/images
     worker:
         build:
             context: .
@@ -21,7 +22,7 @@ services:
         volumes:
         - ./app:/app
         - /var/run/docker.sock:/var/run/docker.sock
-        - ai-images:/tmp
+        - ai-images:/opt/images
     results:
         build:
             context: .
@@ -32,7 +33,7 @@ services:
         volumes:
         - ./app:/app
         - /var/run/docker.sock:/var/run/docker.sock
-        - ai-images:/tmp
+        - ai-images:/opt/images
 
     beat:
         build:
@@ -43,7 +44,7 @@ services:
         working_dir: /app
         volumes:
         - ./app:/app
-        - ai-images:/tmp
+        - ai-images:/opt/images
         - /var/run/docker.sock:/var/run/docker.sock
 
     orthanc:
