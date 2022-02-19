@@ -1,7 +1,7 @@
 """db utils that are used by all queries"""
 
 import traceback
-from typing import Dict, List
+from typing import Dict, List, Tuple
 from urllib.parse import urlparse
 import os
 
@@ -10,7 +10,7 @@ from psycopg2.extras import DictCursor
 from services import logger_service
 
 
-def get_pg_connection() -> (Dict, Dict):
+def get_pg_connection() -> Tuple(Dict, Dict):
     """
     Gets pg connection and cursor from postgres
 

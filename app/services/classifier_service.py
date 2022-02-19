@@ -1,6 +1,7 @@
 import traceback
 import os
 import uuid
+from typing import List, Tuple
 
 from db import study_db, eval_db, classifier_db
 from services import messaging_service, eval_service, logger_service, orthanc_service
@@ -19,7 +20,12 @@ def check_for_ct(orthanc_id: str) -> bool:
     path = f'/opt/images/{orthanc_id}'
     return len(os.listdir(path)) > 1
 
-def classify_studies(studies):
+
+def classify_studies(studies: List[Tuple[str, List[str]]]) -> None:
+    """
+    Takes in a list of tuples containing (modality, study_paths) and will use that modality
+    classifier to determine the study type.
+    """
     # TODO: seems like a lot of nested loops here...revisit and optimize
     for modality, study_paths in studies.items():
 
