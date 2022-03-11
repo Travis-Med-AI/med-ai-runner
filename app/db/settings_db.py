@@ -1,16 +1,19 @@
 """Database queries used by med-ai runner"""
 
-import json
-from typing import List, Dict
+from db.connection_manager import SessionManager
+from db.models import AppSetting
 
 
-from utils.db_utils import query_and_fetchall, query_and_fetchone, query, join_for_in_clause
+class SettingsDB(SessionManager):
+    def get_settings(self) -> AppSetting:
+        sql = f'''
+        select * from app_settings
+        '''
 
-def get_settings() -> Dict:
-    sql = f'''
-    select * from app_settings
-    '''
-
-    model = query_and_fetchone(sql)
-
-    return model
+        settings = self.session.query(AppSetting).scalar()
+        try:
+            self.session.commit()
+        except:
+            self.session.rollback()
+            raise
+        return settings

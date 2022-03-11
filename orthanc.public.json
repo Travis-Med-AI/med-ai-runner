@@ -7,8 +7,11 @@
       ],
     "StorageDirectory" : "/var/lib/orthanc/db",
     "RemoteAccessAllowed" : true,
-    "AuthenticationEnabled": false,
-    "DicomAet": "AI-INTERNAL",
+    "AuthenticationEnabled": true,
+    "DicomAet": "AI",
+    "RegisteredUsers" : {
+        "test" : "test123"
+    },
     "DicomServerEnabled" : true,
     "PostgreSQL": {
         "EnableIndex": true,

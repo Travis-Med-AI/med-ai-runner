@@ -1,6 +1,7 @@
 import os
-from db import settings_db
+from db.settings_db import SettingsDB
 
+settings_db = SettingsDB()
 
 def get_settings():
     rabbitmq_url = os.getenv('RABBIT_MQ_URL') or 'amqp://guest:guest@rabbitmq:5672'

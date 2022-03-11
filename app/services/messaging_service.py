@@ -12,6 +12,7 @@ EVAL_QUEUE = 'eval_results'
 LOG_QUEUE = 'log_results'
 
 
+
 def send_message(queue: str, message):
     try:
         rabbit_url = services.settings_service.get_rabbitmq_url()

@@ -13,23 +13,26 @@ def on_classifier_result(ch, method, properties, body):
     messaging_service.send_notification(f'Study {orthanc_id} ready', 'new_result')
 
 def on_eval_result(ch, method, properties, body):
-    print(f'received eval result {body}')
+    try:
+        print(f'received eval result {body}')
+        message = json.loads(body)
+        eval_id = message['id']
+        result = message['output']
+        type = message['type']
+        print('recieved result: ', result)
+        if type == 'FAIL':
+            eval_service.fail_dicom_eval(eval_id)
+        # write result to db
+        eval_service.write_eval_results(result, eval_id)
 
-
-    message = json.loads(body)
-    eval_id = message['id']
-    result = message['output']
-    type = message['type']
-
-    if type == 'FAIL':
+        study = study_service.get_study_by_eval_id(eval_id)
+        # orthanc_service.delete_study_dicom(study['orthancStudyId'])
+        # send notification to frontend
+        messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result')
+    except:
         eval_service.fail_dicom_eval(eval_id)
-    # write result to db
-    eval_service.write_eval_results(result, eval_id)
-
-    study = study_service.get_study_by_eval_id(eval_id)
-    # orthanc_service.delete_study_dicom(study['orthancStudyId'])
-    # send notification to frontend
-    messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result')
+        print('failed to get result', body)
+        traceback.print_stack()
 
 def on_eval_log(ch, method, properties, body):
     try:
@@ -42,7 +45,7 @@ def on_eval_log(ch, method, properties, body):
         eval_service.add_stdout_to_eval([eval_id], result)
     except:
         print('failed to log', body)
-        traceback.print_stack()
+        # traceback.print_stack()
 
 if __name__  == "__main__":
     print('starting results watcher')

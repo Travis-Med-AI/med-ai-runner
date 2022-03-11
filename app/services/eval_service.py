@@ -1,44 +1,42 @@
 import uuid
 import traceback
-import redis
-from typing import Dict, List
+from typing import List
+from db.eval_db import EvalDB
+from db.models import Model, Study
+from db.study_db import StudyDB
 import docker
 import nvidia_smi
 
-from db import study_db, eval_db
-from utils import db_utils
 from services import messaging_service, logger_service, orthanc_service
 from medaimodels import ModelOutput
 import json
 
+study_db = StudyDB()
+eval_db = EvalDB()
 
-def get_eval_ids(model, studies):
+def create_evals(model: Model, studies: List[Study]) -> List[int]:
     # add db entries for the upcoming study evals
-    eval_ids = eval_db.start_study_evaluations(studies, model['id'])
-
-    # reset the failed evaluations status to 'RUNNING'
-    eval_ids = eval_ids
-
+    eval_ids = eval_db.start_study_evaluations(studies, model.id)
     return eval_ids
 
-def get_failed_eval_ids(model):
-    failed_evals = eval_db.get_failed_eval_ids(model['id'])
-    return eval_db.restart_failed_evals(failed_evals)
+def get_failed_eval_ids(model: Model):
+    failed_evals = eval_db.get_failed_eval_ids(model.id)
+    return eval_db.restart_failed_evals(failed_evals) or []
 
-def restart_failed_by_exp(experimentId: int):
+def reset_failed_evals(experimentId: int) -> List[str]:
     eval_ids = eval_db.get_failed_eval_ids_by_exp(experimentId)
     return eval_db.restart_failed_evals(eval_ids)
 
-def evaluate_studies(studies, model, eval_ids):
+def evaluate_studies(studies: List[Study], model: Model, eval_ids: List[int], cpu: bool=False) -> None:
     # get the orthanc study IDs of all of the studies to be
     # used as the file path for saving dicoms
     try:
-        orthanc_ids = [study['orthancStudyId'] for study in studies]
-        evaluate(model, orthanc_ids, str(uuid.uuid4()), eval_ids)
+        orthanc_ids = [study.orthancStudyId for study in studies]
+        evaluate(model, orthanc_ids, str(uuid.uuid4()), eval_ids, cpu=cpu)
     except:
-        fail_evals(model['id'], eval_ids)
+        fail_evals(model.id, eval_ids)
 
-def fail_evals(model_id, eval_ids):
+def fail_evals(model_id: int, eval_ids: List[int]):
     traceback.print_exc()
     error_message = f'evaluation using model {model_id} failed'
     logger_service.log_error(error_message, traceback.format_exc())
@@ -47,7 +45,8 @@ def fail_evals(model_id, eval_ids):
         eval_db.fail_eval(eval_id)
     messaging_service.send_notification(error_message, 'eval_failed')
 
-def fail_model(model_id):
+def fail_model(model_id: int):
+    # TODO: this doesn't seem like it does anything
     traceback.print_exc()
     error_message = f'evaluation using model {model_id} failed'
 
@@ -57,18 +56,21 @@ def fail_model(model_id):
 def get_eval_jobs():
     return eval_db.get_eval_jobs()
 
-def add_evals_to_db(orthanc_id, model_id):
+def create_eval(orthanc_id: str, model_id: int) -> int:
+    """
+    Creates a study eval entry in the database for a given model and orthanc id
+    """
     study = study_db.get_study_by_orthanc_id(orthanc_id)
+    print('this is the study', study)
     eval_ids = eval_db.start_study_evaluations([study], model_id)
     logger_service.log(f'evaluation {eval_ids[0]} using model {model_id} started')
 
     return eval_ids[0]
 
-def evaluate_with_quickstart(model, 
+def evaluate_with_quickstart(model: Model, 
                              orthanc_ids: List[str], 
-                             uuid: str, 
-                             db_ids: List[int] = None, 
-                             result_queue = messaging_service.EVAL_QUEUE):
+                             db_ids: List[int] = None):
+
     [orthanc_service.download_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
     message = {
@@ -76,15 +78,15 @@ def evaluate_with_quickstart(model,
         'ids': db_ids,
         'type': 'EVAL'
     }
-    print(f'sending message {message} to {str(model["id"])}')
-    messaging_service.send_message(str(model['id']), json.dumps(message))
+    print(f'sending message {message} to {str(model.id)}')
+    messaging_service.send_message(str(model.id), json.dumps(message))
 
-
-def evaluate(model, 
+def evaluate(model: Model, 
              orthanc_ids: List[str], 
              uuid: str, 
              db_ids: List[int] = None, 
-             result_queue = messaging_service.EVAL_QUEUE) -> List[ModelOutput]:
+             result_queue = messaging_service.EVAL_QUEUE,
+             cpu = False) -> List[ModelOutput]:
     """
     Evaluate a study using a model
 
@@ -97,13 +99,13 @@ def evaluate(model,
         :rtype: List[ModelOutput]
         A list of the outputs of the evaluating model
     """
-    if(model['quickStart']):
+    if(model.quickStart):
         print('running with quickstart')
-        evaluate_with_quickstart(model, orthanc_ids, uuid, db_ids)
+        evaluate_with_quickstart(model, orthanc_ids, db_ids)
         return
 
     # get redis client
-    print('eval info', model['image'], orthanc_ids, uuid)
+    print('eval info', model.image, orthanc_ids, uuid)
 
     # get docker client
     client = docker.from_env()
@@ -123,13 +125,13 @@ def evaluate(model,
     # set env variables
     # set runtime to nvidia so that it has a connection to the cuda runtime on host
 
-    runtime = 'nvidia'
+    runtime = 'nvidia' if not cpu else ''
 
     print('downloading dicoms for studies: ', orthanc_ids)
 
     [orthanc_service.download_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
-    container = client.containers.run(image=model['image'],
+    container = client.containers.run(image=model.image,
                                       detach=True,
                                       environment={
                                           'RESULT_QUEUE': result_queue,
@@ -148,9 +150,8 @@ def evaluate(model,
     for line in container.logs(stream=True):
         if db_ids is not None: 
             line = str(line).replace("b'", "").replace("'", "")
+            print(line)
             stdout.append(line)
-    
-    # eval_db.add_stdout_to_eval(db_ids, stdout)
     
     # [orthanc_service.delete_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
@@ -158,7 +159,7 @@ def evaluate(model,
     logger_service.log(f'Finished model execution for evaluation {uuid}', logger_extra)
 
 
-def write_eval_results(results, eval_id):
+def write_eval_results(results, eval_id: int):
     eval_db.update_eval_status_and_save(results, eval_id)
 
 def fail_dicom_eval(eval_id):

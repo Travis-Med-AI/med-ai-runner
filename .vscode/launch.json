@@ -4,6 +4,7 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+
         {
             "name": "Python: Current File",
             "type": "python",
@@ -12,11 +13,49 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: File",
+            "name": "Python: Worker GPU",
             "type": "python",
             "request": "launch",
             "program": "runner.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Celery",
+            "type": "python",
+            "request": "launch",
+            "module": "celery",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/app",
+            "args": [
+                "-A",
+                "runner",
+                "worker",
+                "-l",
+                "info",
+                "-E",
+                "-Q",
+                "celery",
+                "-c",
+                "1"
+            ]
+        },
+        {
+            "name": "Python: Worker",
+            "type": "python",
+            "request": "launch",
+            "module": "celery",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}/app",
+            "args": [
+                "-A",
+                "runner",
+                "worker",
+                "-l",
+                "info",
+                "-E",
+                "-Q",
+                "no_gpu",
+            ]
         },
     ]
 }

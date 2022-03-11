@@ -1,43 +1,42 @@
 """Database queries used by med-ai runner"""
 
-import json
-from typing import List, Dict
+from db.connection_manager import SessionManager
+from db.models import Classifier, Model, Study
 
-from medaimodels import ModelOutput
+class ClassiferDB(SessionManager):
+    def get_classifier_model(self, modality: str) -> Classifier:
+        """
+        Gets a classifier model for a given modality
 
-from utils.db_utils import query_and_fetchall, query_and_fetchone, query, join_for_in_clause
+        Args:
+            modality (str): the modality of the studies
 
-def get_classifier_model(modality: str):
-    """
-    Gets a classifier model for a given modality
+        Returns:
+            Dict: the classifer model that pertains to the given modality
+        """
+        classifier = self.session.query(Classifier).join(Model).\
+                                            filter(Model.modality==modality).scalar()
+        try:
+            self.session.commit()
+        except:
+            self.session.rollback()
+            raise
+        return classifier
 
-    Args:
-        modality (str): the modality of the studies
 
-    Returns:
-        Dict: the classifer model that pertains to the given modality
-    """
+    def fail_classifer(self, study_id: int):
+        """
+        Updates study evalutation status to failed
 
-    sql = f'''
-    SELECT m.* FROM classifier c 
-    JOIN model m ON c."modelId"=m.id
-    WHERE m.modality = '{modality}'
-    '''
+        Args:
+            eval_id: the db id of the failed evaluation
+        """
 
-    return query_and_fetchone(sql)
+        study = self.session.query(Study).filter(Study.orthancStudyId==study_id).scalar()
+        study.failed = True
+        try:
+            self.session.commit()
+        except:
+            self.session.rollback()
+            raise
 
-def fail_classifer(study_id: int):
-    """
-    Updates study evalutation status to failed
-
-    Args:
-        eval_id: the db id of the failed evaluation
-    """
-
-    sql = f'''
-    UPDATE study 
-    SET failed=true
-    WHERE "orthancStudyId"='{study_id}'
-    '''
-
-    query(sql)

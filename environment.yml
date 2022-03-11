@@ -58,6 +58,7 @@ dependencies:
   - sphinxcontrib-jsmath=1.0.1
   - sphinxcontrib-qthelp=1.0.3
   - sphinxcontrib-serializinghtml=1.1.4
+  - sqlalchemy=1.4.27
   - sqlite=3.34.0
   - tk=8.6.10
   - tzdata=2020d

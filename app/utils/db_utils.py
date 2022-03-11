@@ -10,7 +10,7 @@ from psycopg2.extras import DictCursor
 from services import logger_service
 
 
-def get_pg_connection() -> Tuple(Dict, Dict):
+def get_pg_connection() -> Tuple[Dict, Dict]:
     """
     Gets pg connection and cursor from postgres
 
@@ -60,7 +60,7 @@ def query_and_fetchone(sql_query: str, *args) -> Dict:
 
         pg_cur.execute(sql_query, args)
 
-        result = pg_cur.fetchone()
+        result = pg_cur.fetchscalar()
 
         pg_conn.commit()
         pg_cur.close()

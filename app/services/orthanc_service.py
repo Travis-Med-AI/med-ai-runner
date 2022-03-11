@@ -1,9 +1,11 @@
+from ast import Or
+from operator import mod
 import os
 import shutil
 import json
 import traceback
 from zipfile import ZipFile
-from typing import List
+from typing import List, NamedTuple
 import nvidia_smi
 import glob
 import requests
@@ -11,9 +13,70 @@ import redis
 import docker
 from medaimodels import ModelOutput
 from settings import settings_service
+from dataclasses import dataclass
+
+class OrthancMetadata(NamedTuple):
+    orthanc_id: str
+    patient_id: str
+    modality: str
+    study_uid: str
+    series_uid: str
+    accession:str
+    description: str
+    series_instances: List
+
+def download_metadata(orthanc_id: str):
+    # Get orthanc url from setting
+    orthanc_url = settings_service.get_orthanc_url()
+
+    # Get relevant data from series metadata
+    series_url = f'{orthanc_url}/series/{orthanc_id}'
+    series_info = requests.get(series_url).json()
+    main_series_tags = series_info.get('MainDicomTags', {})
+    series_uid = main_series_tags.get('SeriesInstanceUID', '')
+    description = main_series_tags.get('PerformedProcedureStepDescription', '')
+    modality = main_series_tags.get('Modality')
+    study_id = series_info['ParentStudy']
+    instances = list(series_info.get('Instances', {}))
+
+    # Get relevant data from stuudy metadata
+    study_info_url = f'{orthanc_url}/studies/{study_id}'
+    study_info = requests.get(study_info_url).json()
+    main_study_metadata = study_info.get('MainDicomTags', {})
+    study_uid = main_study_metadata.get('StudyInstanceUID', '')
+    accession = main_study_metadata.get('AccessionNumber', '')
+    patient_id = main_study_metadata.get('PatientID', '')
+
+    return OrthancMetadata(
+        orthanc_id=orthanc_id,
+        patient_id = patient_id,
+        modality=modality,
+        study_uid=study_uid,
+        series_uid=series_uid,
+        accession=accession,
+        description=description,
+        series_instances=instances
+    )
 
 
-def get_study(orthanc_id: str) -> (str, str, str, str, str):
+def save_series_preview(metadata: OrthancMetadata):
+    # Get orthanc url from setting
+    orthanc_url = settings_service.get_orthanc_url()
+    # get a preview of the first instance in the series
+    first_instance_id = metadata.series_instances[0]
+    study_png = requests.get(f'{orthanc_url}/instances/{first_instance_id[0]}/preview', stream=True)
+
+    # define download path for study
+    out_path = f'/opt/images/{metadata.orthanc_id}'
+    png_path = f'{out_path}.png'
+
+    study_file = open(png_path, 'wb')
+
+    study_file.write(study_png.content)
+    study_file.close()
+    
+
+def get_study_metadata(orthanc_id: str) -> OrthancMetadata:
     """
     Retreive study from orthanc
 
@@ -21,44 +84,15 @@ def get_study(orthanc_id: str) -> (str, str, str, str, str):
         orthanc_id (str): the study ID for orthanc
 
     Returns
-        :rtype: (str, str, str)
+        :OrthancMetadata
     """
 
     # get study info from orthanc
+    metadata = download_metadata(orthanc_id)
 
+    save_series_preview(metadata)
 
-    # get the dicom's series ID from study metadata
-
-    # download the series metadata from orthanc
-    orthanc_url = settings_service.get_orthanc_url()
-    series_url = f'{orthanc_url}/series/{orthanc_id}'
-    series_info = requests.get(series_url).json()
-    series_uid = series_info.get('MainDicomTags', {}).get('SeriesInstanceUID', '')
-    description = series_info.get('MainDicomTags', {}).get('PerformedProcedureStepDescription', '')
-    study_id = series_info['ParentStudy']
-
-    study_info_url = f'{orthanc_url}/studies/{study_id}'
-    study_info = requests.get(study_info_url).json()
-    study_uid = study_info.get('MainDicomTags', {}).get('StudyInstanceUID', '')
-    accession = study_info.get('MainDicomTags', {}).get('AccessionNumber', '')
-
-    # extract the modality from the series
-    modality = series_info.get('MainDicomTags', {}).get('Modality')
-
-    # get a preview of the first instance in the series
-    instance_id = list(series_info.get('Instances', {}))[0]
-    study_png = requests.get(f'{orthanc_url}/instances/{instance_id[0]}/preview', stream=True)
-
-    # define download path for study
-    out_path = f'/opt/images/{orthanc_id}'
-    png_path = f'{out_path}.png'
-
-    study_file = open(png_path, 'wb')
-
-    study_file.write(study_png.content)
-    study_file.close()
-
-    return orthanc_id, study_info.get('PatientMainDicomTags', {}).get('PatientID'), modality, study_uid, series_uid, accession, description
+    return metadata
 
 def get_modality(orthanc_id: str) -> str:
     """
@@ -77,7 +111,7 @@ def get_modality(orthanc_id: str) -> str:
     return series_info.get('MainDicomTags', {} ).get('Modality')
 
 
-def get_orthanc_studies():
+def get_orthanc_study_ids():
     """
     Retrieve orthanc study ids from orthanc
 
@@ -90,7 +124,7 @@ def get_orthanc_studies():
 
     return studies.json()
 
-def download_study_dicom(orthanc_id):
+def download_study_dicom(orthanc_id: str):
     """
     """
     orthanc_url = settings_service.get_orthanc_url()
@@ -106,7 +140,7 @@ def download_study_dicom(orthanc_id):
     with ZipFile(file_path, 'r') as zip_obj:
         zip_obj.extractall(out_path)
 
-def delete_study_dicom(orthanc_id):
+def delete_study_dicom(orthanc_id: str):
     """
     """
     out_path = f'/opt/images/{orthanc_id}'
