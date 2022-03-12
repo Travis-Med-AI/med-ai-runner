@@ -28,13 +28,13 @@ def get_models_to_quickstart():
 
 def quickstart_model(model: Model, cpu: boolean = False):
     try:
-
+        job = model_db.get_job_by_model(model.id)
         volumes = {
             'ai-images': {'bind': '/opt/images', 'mode': 'rw'}
         }
         client = docker.from_env()
 
-        runtime = 'nvidia' if not cpu else ''
+        runtime = 'nvidia' if not job.cpu else ''
         model_db.mark_models_as_quickstarted([model.id])
         print(f'starting docker container for {model}')
 

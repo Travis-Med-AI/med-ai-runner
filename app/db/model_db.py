@@ -3,7 +3,7 @@
 import json
 from typing import Dict, List
 from db.connection_manager import SessionManager
-from db.models import Model
+from db.models import EvalJob, Model
 
 
 class ModelDB(SessionManager):
@@ -94,6 +94,10 @@ class ModelDB(SessionManager):
         except:
             self.session.rollback()
             raise
+        
+    def get_job_by_model(self, model_id: int):
+        job = self.session.query(EvalJob).filter(EvalJob.modelId==model_id).scalar()
+        return job
 
     def mark_model_as_stopped(self, model_id):
         """
