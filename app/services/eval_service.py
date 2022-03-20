@@ -4,6 +4,7 @@ from typing import List
 from db.eval_db import EvalDB
 from db.models import Model, Study
 from db.study_db import StudyDB
+from db.model_db import ModelDB
 import docker
 import nvidia_smi
 
@@ -11,8 +12,17 @@ from services import messaging_service, logger_service, orthanc_service
 from medaimodels import ModelOutput
 import json
 
+from kubernetes import client, config
+from pprint import pprint
+import json
+from uuid import uuid4
+
+JOB_NAMESPACE = "default"
+config.load_incluster_config()
+
 study_db = StudyDB()
 eval_db = EvalDB()
+model_db = ModelDB()
 
 def create_evals(model: Model, studies: List[Study]) -> List[int]:
     # add db entries for the upcoming study evals
@@ -99,7 +109,8 @@ def evaluate(model: Model,
         :rtype: List[ModelOutput]
         A list of the outputs of the evaluating model
     """
-    if(model.quickStart):
+    job = model_db.get_job_by_model(model.id)
+    if(job.replicas > 0):
         print('running with quickstart')
         evaluate_with_quickstart(model, orthanc_ids, db_ids)
         return
@@ -131,32 +142,8 @@ def evaluate(model: Model,
 
     [orthanc_service.download_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
 
-    container = client.containers.run(image=model.image,
-                                      detach=True,
-                                      environment={
-                                          'RESULT_QUEUE': result_queue,
-                                          'FILENAMES': filenames, 
-                                          'ID': uuid, 
-                                          'RUN_SINGLE': 'True',
-                                          'DB_IDs': ids, 
-                                          'NVIDIA_DRIVER_CAPABILITIES': 'compute,utility',
-                                          'NVIDIA_VISIBLE_DEVICES': 'all'},
-                                      runtime=runtime,
-                                      network='ai-network',
-                                      volumes=volumes,
-                                      shm_size='11G')
-    stdout = []
 
-    for line in container.logs(stream=True):
-        if db_ids is not None: 
-            line = str(line).replace("b'", "").replace("'", "")
-            print(line)
-            stdout.append(line)
-    
-    # [orthanc_service.delete_study_dicom(orthanc_id) for orthanc_id in orthanc_ids]
-
-    logger_extra = {'stdout': str(stdout)}
-    logger_service.log(f'Finished model execution for evaluation {uuid}', logger_extra)
+    start_k8_job(model.image, result_queue, filenames, uuid, ids)    
 
 
 def write_eval_results(results, eval_id: int):
@@ -182,3 +169,46 @@ def remove_orphan_evals():
 
 def add_stdout_to_eval(ids, stdout):
     eval_db.add_stdout_to_eval(ids, stdout)
+
+def start_k8_job(image, result_queue, filenames, uuid, ids):
+    config.load_incluster_config()
+
+    batch_v1 = client.BatchV1Api()
+
+    job_name = f'{image}_{uuid}'
+    environment = [
+        {'name': 'RESULT_QUEUE', 'value': result_queue},
+        {'name': 'FILENAMES', 'value': filenames},
+        {'name': 'ID', 'value': uuid},
+        {'name': 'RUN_SINGLE', 'value': 'True'},
+        {'name': 'DB_IDs', 'value': ids},
+
+    ]
+
+    volume_mounts = [
+        {'mount_path': '/opt/images', 'name': 'medai-ai-images'}
+    ]
+
+    container = client.V1Container(
+            name=image,
+            image=image,
+            env=environment,
+            volume_mounts=volume_mounts
+        )
+    template = client.V1PodTemplateSpec(
+            metadata=client.V1ObjectMeta(labels={'name': job_name}),
+            spec=client.V1PodSpec(containers=[container]))
+
+    spec = client.V1JobSpec(template=template)
+
+    job = client.V1Job(
+        api_version='batch/v1',
+        kind='Job',
+        metadata=client.V1ObjectMeta(name=job_name),
+        spec=spec)
+
+    api_response = batch_v1.create_namespaced_job(
+        body=job,
+        namespace='default')
+    
+    return api_response

@@ -3,75 +3,86 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - alabaster=0.7.12
-  - babel=2.9.0
-  - brotlipy=0.7.0
-  - ca-certificates=2020.12.8
-  - certifi=2020.12.5
-  - cffi=1.14.4
-  - chardet=3.0.4
-  - cryptography=3.3.1
-  - docutils=0.16
-  - expat=2.2.10
-  - freetype=2.10.4
-  - gdcm=2.8.9
-  - idna=2.10
-  - imagesize=1.2.0
-  - jinja2=2.11.2
-  - jpeg=9b
-  - json-c=0.13.1
-  - lcms2=2.11
-  - libcxx=11.0.0
-  - libffi=3.3
-  - libjpeg-turbo=2.0.5
-  - libpng=1.6.37
-  - libtiff=4.1.0
-  - lz4-c=1.9.2
-  - markupsafe=1.1.1
-  - ncurses=6.2
-  - olefile=0.46
-  - openjpeg=2.3.1
-  - openssl=1.1.1i
-  - packaging=20.7
-  - pika=1.1.0
-  - pillow=8.0.1
-  - pip=20.3.1
-  - pycparser=2.20
-  - pydicom=2.1.2
-  - pygments=2.7.3
-  - pyopenssl=20.0.0
-  - pyparsing=2.4.7
-  - pysocks=1.7.1
-  - python=3.9.1
-  - python-logstash=0.4.6
-  - python_abi=3.9
-  - pytz=2020.4
-  - readline=8.0
-  - requests=2.25.0
-  - setuptools=49.6.0
-  - six=1.15.0
-  - snowballstemmer=2.0.0
-  - sphinx=3.2.1
-  - sphinxcontrib-applehelp=1.0.2
-  - sphinxcontrib-devhelp=1.0.2
-  - sphinxcontrib-htmlhelp=1.0.3
-  - sphinxcontrib-jsmath=1.0.1
-  - sphinxcontrib-qthelp=1.0.3
-  - sphinxcontrib-serializinghtml=1.1.4
-  - sqlalchemy=1.4.27
-  - sqlite=3.34.0
-  - tk=8.6.10
-  - tzdata=2020d
-  - urllib3=1.25.11
-  - wheel=0.36.1
-  - xz=5.2.5
-  - zlib=1.2.11
-  - zstd=1.4.5
+  - _libgcc_mutex=0.1=conda_forge
+  - _openmp_mutex=4.5=1_gnu
+  - alabaster=0.7.12=py_0
+  - babel=2.9.0=pyhd3deb0d_0
+  - brotlipy=0.7.0=py39h3811e60_1003
+  - ca-certificates=2021.10.26=h06a4308_2
+  - certifi=2021.10.8=py39h06a4308_2
+  - cffi=1.14.4=py39he32792d_1
+  - chardet=3.0.4=py39h079e4ff_1008
+  - cryptography=3.3.1=py39h3da14fd_1
+  - docutils=0.16=py39hf3d152e_3
+  - expat=2.2.10=h9c3ff4c_0
+  - freetype=2.10.4=h0708190_1
+  - gdcm=2.8.9=py39hbd2a5d6_1
+  - greenlet=1.1.1=py39h295c915_0
+  - idna=2.10=pyh9f0ad1d_0
+  - imagesize=1.2.0=py_0
+  - jinja2=2.11.2=pyh9f0ad1d_0
+  - jpeg=9b=h024ee3a_2
+  - json-c=0.13.1=hbfbb72e_1002
+  - lcms2=2.11=h396b838_0
+  - ld_impl_linux-64=2.36.1=hea4e1c9_2
+  - libcxx=11.0.0=h0efe328_1
+  - libcxxabi=11.0.0=ha770c72_1
+  - libffi=3.3=h58526e2_2
+  - libgcc-ng=11.2.0=h1d223b6_12
+  - libgomp=11.2.0=h1d223b6_12
+  - libjpeg-turbo=2.0.5=h7f98852_0
+  - libpng=1.6.37=h21135ba_2
+  - libstdcxx-ng=11.2.0=he4da1e4_12
+  - libtiff=4.1.0=h2733197_1
+  - libzlib=1.2.11=h36c2ea0_1013
+  - lz4-c=1.9.2=he1b5a44_3
+  - markupsafe=1.1.1=py39h3811e60_3
+  - ncurses=6.2=h58526e2_4
+  - olefile=0.46=pyh9f0ad1d_1
+  - openjpeg=2.3.1=hf7af979_3
+  - openssl=1.1.1m=h7f8727e_0
+  - packaging=20.7=pyhd3deb0d_0
+  - pika=1.1.0=pyh9f0ad1d_1
+  - pillow=8.0.1=py39he98fc37_0
+  - pip=20.3.1=pyhd8ed1ab_0
+  - pycparser=2.20=pyh9f0ad1d_2
+  - pydicom=2.1.2=pyhd3deb0d_0
+  - pygments=2.7.3=pyhd8ed1ab_0
+  - pyopenssl=20.0.0=pyhd8ed1ab_0
+  - pyparsing=2.4.7=pyhd8ed1ab_1
+  - pysocks=1.7.1=py39hf3d152e_4
+  - python=3.9.1=hffdb5ce_5_cpython
+  - python-logstash=0.4.6=py_0
+  - python_abi=3.9=2_cp39
+  - pytz=2020.4=pyhd8ed1ab_0
+  - readline=8.0=he28a2e2_2
+  - requests=2.25.0=pyhd3deb0d_0
+  - setuptools=49.6.0=py39hf3d152e_3
+  - six=1.15.0=pyh9f0ad1d_0
+  - snowballstemmer=2.0.0=py_0
+  - sphinx=3.2.1=py_0
+  - sphinxcontrib-applehelp=1.0.2=py_0
+  - sphinxcontrib-devhelp=1.0.2=py_0
+  - sphinxcontrib-htmlhelp=1.0.3=py_0
+  - sphinxcontrib-jsmath=1.0.1=py_0
+  - sphinxcontrib-qthelp=1.0.3=py_0
+  - sphinxcontrib-serializinghtml=1.1.4=py_0
+  - sqlalchemy=1.4.27=py39h7f8727e_0
+  - sqlite=3.34.0=h74cdb3f_0
+  - tk=8.6.10=h21135ba_1
+  - tzdata=2020d=h516909a_0
+  - urllib3=1.25.11=py_0
+  - wheel=0.36.1=pyhd3deb0d_0
+  - xz=5.2.5=h516909a_1
+  - zlib=1.2.11=h36c2ea0_1013
+  - zstd=1.4.5=h6597ccf_2
   - pip:
     - amqp==5.0.2
+    - astroid==2.9.3
     - asttokens==2.0.4
     - attrs==20.3.0
     - billiard==3.6.3.0
+    - cachetools==5.0.0
     - celery==5.0.4
     - click==7.1.2
     - click-didyoumean==0.0.3
@@ -79,22 +90,38 @@ dependencies:
     - click-repl==0.1.6
     - docker==4.4.0
     - executing==0.5.3
+    - google-auth==2.6.0
     - iniconfig==1.1.1
+    - isort==5.10.1
     - kombu==5.0.2
+    - kubernetes==23.3.0
+    - lazy-object-proxy==1.7.1
     - littleutils==0.2.2
+    - mccabe==0.6.1
     - medaimodels==0.0.4
+    - numpy==1.22.2
     - nvidia-ml-py3==7.352.0
     - nvidia-smi==0.1.3
+    - oauthlib==3.2.0
+    - platformdirs==2.5.1
     - pluggy==0.13.1
     - prompt-toolkit==3.0.8
     - psycopg2-binary==2.8.6
     - py==1.10.0
+    - pyasn1==0.4.8
+    - pyasn1-modules==0.2.8
+    - pylint==2.12.2
     - pytest==6.2.0
+    - python-dateutil==2.8.2
+    - pyyaml==6.0
     - redis==3.5.3
+    - requests-oauthlib==1.3.1
+    - rsa==4.8
     - sorcery==0.2.1
     - toml==0.10.2
+    - typing-extensions==4.1.1
     - vine==5.0.0
     - wcwidth==0.2.5
     - websocket-client==0.57.0
     - wrapt==1.12.1
-prefix: /Users/travisclarke/opt/anaconda3/envs/med-ai-runner
+prefix: /opt/anaconda/envs/med-ai-runner

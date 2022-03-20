@@ -31,7 +31,7 @@ class ModelDB(SessionManager):
             raise
         return model
 
-    def get_models_to_quickstart(self) -> List[Model]:
+    def get_jobs_to_quickstart(self) -> List[Model]:
         """
         selects all models from database with quickstart enabled that are not currently running
 
@@ -43,36 +43,13 @@ class ModelDB(SessionManager):
         # SELECT * FROM model
         # where running=false and "quickStart"=true
         # '''
-        models = self.session.query(Model).\
-                            filter(Model.quickStart==True).all()
+        jobs = self.session.query(EvalJob).all()
         try:
             self.session.commit()
         except:
             self.session.rollback()
             raise
-        return models
-
-    def mark_models_as_quickstarted(self, model_ids):
-        """
-        sets a model as quickstarted
-
-        Args:
-            model_ids (List[int]): the models to mark as quick started
-        """
-
-        # sql = f'''
-        # UPDATE model
-        # SET "running"=true
-        # WHERE "id" in ({join_for_in_clause(model_ids)})
-        # '''
-
-        model = self.session.query(Model).filter(Model.id.in_(model_ids)).scalar()
-        model.quickStartRunning = True
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
+        return jobs
 
     def stop_all_models(self):
         """
@@ -113,7 +90,6 @@ class ModelDB(SessionManager):
         # WHERE id = {model_id}
         # '''
         model = self.session.query(Model).filter(Model.id==model_id)
-        model.quickStartRunning = False
         try:
             self.session.commit()
         except:

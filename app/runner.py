@@ -173,15 +173,14 @@ def quickstart_models():
     """
     try:
         # getting unstarted models
-        models = model_service.get_models_to_quickstart()
-        if len(models) < 1:
+        jobs = model_service.get_jobs_to_quickstart()
+        if len(jobs) < 1:
             return
-        print(f'found the following models to quickstart: {models}')
+        print(f'found the following models to quickstart: {jobs}')
         # quickstart model
-        model_service.quickstart_model(models[0])
+        model_service.quickstart_model(jobs[0])
 
     except Exception as e:
         print('quickstart failed')
         traceback.print_exc()
-    print('finished quickstart models')
     

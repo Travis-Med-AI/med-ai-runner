@@ -40,9 +40,7 @@ class Model(Base):
     hasImageOutput = Column(Boolean, nullable=False)
     pulled = Column(Boolean, nullable=False, server_default=text("false"))
     failedPull = Column(Boolean, nullable=False, server_default=text("false"))
-    quickStart = Column(Boolean, nullable=False, server_default=text("false"))
     concurrency = Column(Integer, nullable=False, server_default=text("1"))
-    quickStartRunning = Column(Boolean, nullable=False, server_default=text("false"))
 
 
 class Notification(Base):
@@ -111,6 +109,7 @@ class EvalJob(Base):
     batchSize = Column(Integer, nullable=False, server_default=text("1"))
     running = Column(Boolean, nullable=False)
     cpu = Column(Boolean, nullable=False, server_default=text("false"))
+    replicas = Column(Integer, nullable=False, server_default=text("0"))
     lastRun = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
 
@@ -137,12 +136,12 @@ class ModelTrain(Base):
 
     id = Column(Integer, primary_key=True, server_default=text("nextval('model_train_id_seq'::regclass)"))
     failed = Column(Boolean, nullable=False, server_default=text("false"))
-    modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
+    modelId = Column(ForeignKey('model.id', ondelete='CASCADE'))
     training = Column(Boolean, nullable=False, server_default=text("false"))
     modelOutput = Column(JSONB(astext_type=Text()))
     studyId = Column(ForeignKey('study.id', ondelete='CASCADE'), unique=True)
 
-    model = relationship('Model', uselist=False)
+    model = relationship('Model')
     study = relationship('Study', uselist=False)
 
 
