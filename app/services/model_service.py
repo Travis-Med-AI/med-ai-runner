@@ -3,13 +3,13 @@ from xmlrpc.client import boolean
 from numpy import imag
 
 from sqlalchemy import false
-from db.model_db import ModelDB
+from services import messaging_service
+from db import model_db
 from db.models import EvalJob, Model
 import docker
-from services import messaging_service, settings_service
+from services import settings_service
 from kubernetes import client, config
 
-model_db = ModelDB()
 
 def sanitize_model_name(name):
     return ''.join(e for e in name if (e.isalnum() or e=='-')) + 'x'

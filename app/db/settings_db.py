@@ -1,19 +1,10 @@
 """Database queries used by med-ai runner"""
 
-from db.connection_manager import SessionManager
 from db.models import AppSetting
+from utils.db_utils import DBConn
 
+def get_settings() -> AppSetting:
+    with DBConn() as session:
+        settings = session.query(AppSetting).scalar()
 
-class SettingsDB(SessionManager):
-    def get_settings(self) -> AppSetting:
-        sql = f'''
-        select * from app_settings
-        '''
-
-        settings = self.session.query(AppSetting).scalar()
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        return settings
+    return settings

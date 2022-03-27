@@ -1,9 +1,9 @@
 from typing import List
 from collections import defaultdict
-from db.study_db import StudyDB
+from db import study_db
+
 from services import orthanc_service
 
-study_db = StudyDB()
 
 def get_studies_for_model(model_id: int, batch_size: int):
     studies = study_db.get_studies_for_model(model_id)

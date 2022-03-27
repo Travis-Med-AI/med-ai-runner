@@ -1,14 +1,14 @@
 import uuid
 import traceback
 from typing import List
-from db.eval_db import EvalDB
-from db.models import Model, Study
-from db.study_db import StudyDB
-from db.model_db import ModelDB
+from services import messaging_service
+from db.models import Model, Study, StudyEvaluation
+from db import eval_db, model_db, study_db
+
 import docker
 import nvidia_smi
 
-from services import messaging_service, logger_service, orthanc_service
+from services import logger_service, orthanc_service
 from medaimodels import ModelOutput
 import json
 
@@ -20,9 +20,6 @@ from uuid import uuid4
 JOB_NAMESPACE = "default"
 config.load_incluster_config()
 
-study_db = StudyDB()
-eval_db = EvalDB()
-model_db = ModelDB()
 
 def create_evals(model: Model, studies: List[Study]) -> List[int]:
     # add db entries for the upcoming study evals
@@ -52,8 +49,8 @@ def fail_evals(model_id: int, eval_ids: List[int]):
     logger_service.log_error(error_message, traceback.format_exc())
 
     for eval_id in eval_ids:
-        eval_db.fail_eval(eval_id)
-    messaging_service.send_notification(error_message, 'eval_failed')
+        e: StudyEvaluation = eval_db.fail_eval(eval_id)
+        messaging_service.send_notification(error_message, 'eval_failed', e.userId)
 
 def fail_model(model_id: int):
     # TODO: this doesn't seem like it does anything
@@ -147,15 +144,15 @@ def evaluate(model: Model,
 
 
 def write_eval_results(results, eval_id: int):
-    eval_db.update_eval_status_and_save(results, eval_id)
+    return eval_db.update_eval_status_and_save(results, eval_id)
 
 def fail_dicom_eval(eval_id):
     traceback.print_exc()
     error_message = f'evaluation for study {eval_id} failed'
     logger_service.log_error(error_message, traceback.format_exc())
     # update eval status to FAILED
-    eval_db.fail_eval(eval_id)
-    messaging_service.send_notification(error_message, 'eval_failed')
+    e:StudyEvaluation = eval_db.fail_eval(eval_id)
+    messaging_service.send_notification(error_message, 'eval_failed', e.userId)
 
 def check_gpu():
     try:

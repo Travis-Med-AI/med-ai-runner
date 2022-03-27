@@ -63,8 +63,8 @@ services:
         restart: unless-stopped
         volumes: ["orthanc-storage:/var/lib/orthanc/db"]
         ports:
-        - 4243:4242
-        - 8043:8042
+        - 4242:4242
+        - 8042:8042
 
 networks:
     default:

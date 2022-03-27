@@ -1,5 +1,7 @@
 import json
-from services import logger_service, classifier_service, eval_service, experiment_service, messaging_service, model_service, orthanc_service, study_service
+from utils.db_utils import RabbitConn, init_db, init_rabbit
+from services import logger_service, classifier_service, eval_service, experiment_service, model_service, orthanc_service, study_service
+from services import messaging_service
 import json
 import traceback
 
@@ -10,7 +12,7 @@ def on_classifier_result(ch, method, properties, body):
     result = message['output']
     classifier_service.save_classification(orthanc_id, result)
 
-    messaging_service.send_notification(f'Study {orthanc_id} ready', 'new_result')
+    messaging_service.send_notification(f'Study {orthanc_id} ready', 'new_result', -1)
 
 def on_eval_result(ch, method, properties, body):
     try:
@@ -18,17 +20,17 @@ def on_eval_result(ch, method, properties, body):
         message = json.loads(body)
         eval_id = message['id']
         result = message['output']
-        type = message['type']
+        msg_type = message['type']
         print('recieved result: ', result)
-        if type == 'FAIL':
+        if msg_type == 'FAIL' or type(result) is not dict:
             eval_service.fail_dicom_eval(eval_id)
         # write result to db
-        eval_service.write_eval_results(result, eval_id)
+        e = eval_service.write_eval_results(result, eval_id)
 
         study = study_service.get_study_by_eval_id(eval_id)
         # orthanc_service.delete_study_dicom(study['orthancStudyId'])
         # send notification to frontend
-        messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result')
+        messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result', e.userId)
     except:
         eval_service.fail_dicom_eval(eval_id)
         print('failed to get result', body)
@@ -49,18 +51,20 @@ def on_eval_log(ch, method, properties, body):
 
 if __name__  == "__main__":
     print('starting results watcher')
-    channel = messaging_service.get_channel()
-    channel.queue_declare(messaging_service.EVAL_QUEUE)
-    channel.queue_declare(messaging_service.CLASSIFIER_QUEUE)
-    channel.queue_declare(messaging_service.LOG_QUEUE)
+    init_rabbit()
+    init_db()
+    with RabbitConn() as channel:
+        channel.queue_declare(messaging_service.EVAL_QUEUE)
+        channel.queue_declare(messaging_service.CLASSIFIER_QUEUE)
+        channel.queue_declare(messaging_service.LOG_QUEUE)
 
-    channel.basic_consume(queue=messaging_service.CLASSIFIER_QUEUE, 
-                          on_message_callback=on_classifier_result, 
-                          auto_ack=True)
-    channel.basic_consume(queue=messaging_service.EVAL_QUEUE, 
-                          on_message_callback=on_eval_result, 
-                          auto_ack=True)
-    channel.basic_consume(queue=messaging_service.LOG_QUEUE, 
-                          on_message_callback=on_eval_log, 
-                          auto_ack=True)
-    channel.start_consuming()
+        channel.basic_consume(queue=messaging_service.CLASSIFIER_QUEUE, 
+                            on_message_callback=on_classifier_result, 
+                            auto_ack=True)
+        channel.basic_consume(queue=messaging_service.EVAL_QUEUE, 
+                            on_message_callback=on_eval_result, 
+                            auto_ack=True)
+        channel.basic_consume(queue=messaging_service.LOG_QUEUE, 
+                            on_message_callback=on_eval_log, 
+                            auto_ack=True)
+        channel.start_consuming()

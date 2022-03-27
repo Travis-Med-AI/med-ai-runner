@@ -1,130 +1,105 @@
-"""db utils that are used by all queries"""
+import time
 
-import traceback
-from typing import Dict, List, Tuple
-from urllib.parse import urlparse
+import atexit
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine 
 import os
+import pika
 
-from psycopg2 import connect
-from psycopg2.extras import DictCursor
-from services import logger_service
+db_connection = None
+rabbit_connection = None
+rabbit_channel = None
 
-
-def get_pg_connection() -> Tuple[Dict, Dict]:
+def init_db():
     """
-    Gets pg connection and cursor from postgres
-
-    Returns:
-        (Dict, Dict): the pg connection and cursor
+    Initializes the database connection pool required by the application to connect to the database.
     """
-    try:
-        postgres_url = os.getenv('POSTGRES_URL') 
-        if(postgres_url):
+    global db_connection
+    if db_connection is None:
+        print('initializing db connection')
+        engine = create_engine('postgresql://test:test@postgres-db:5432/ai', isolation_level="READ UNCOMMITTED")
+        import db.models as models
+        Session = sessionmaker(bind=engine)
+        db_connection = Session()
+    else:
+        print("The connection pool has already been initialized.")
 
-            result = urlparse.urlparse(postgres_url)
-            username = result.username
-            password = result.password
-            database = result.path[1:]
-            hostname = result.hostname
-            port = result.port
-            pg_conn = psycopg2.connect(
-                database = database,
-                user = username,
-                password = password,
-                host = hostname,
-                port = port
-            )
-        else:
-            pg_conn = connect(host='postgres-db', user='test', password='test', dbname='ai')
-        pg_cur = pg_conn.cursor(cursor_factory=DictCursor)
+def init_rabbit():
+    global rabbit_channel
+    global rabbit_connection
+    global rabbit_channel
 
-        return pg_conn, pg_cur
-    except Exception as e:
-        traceback.print_exc()
-        logger_service.log_error('DB ERROR', traceback.format_exc())
-        raise e
+    print('opening db connection')
+    rabbit_url = os.getenv('RABBIT_MQ_URL') or 'amqp://guest:guest@rabbitmq:5672'
+    rabbit_connection = pika.BlockingConnection(pika.URLParameters(rabbit_url))
+    rabbit_channel = rabbit_connection.channel()
 
-
-def query_and_fetchone(sql_query: str, *args) -> Dict:
+class DBConn:
     """
-    takes a sql query string and returns the first row of the results of the query
-
-    Args:
-        sql_query: the SQL query
-
-    Returns:
-        Dict: A single row from the query
-    """
-    try:
-        pg_conn, pg_cur = get_pg_connection()
-
-        pg_cur.execute(sql_query, args)
-
-        result = pg_cur.fetchscalar()
-
-        pg_conn.commit()
-        pg_cur.close()
-        pg_conn.close()
-
-        return result
-
-    except Exception as e:
-        traceback.print_exc()
-        logger_service.log_error('DB ERROR', traceback.format_exc())
-        raise e
-
-
-def query_and_fetchall(sql_query: str, *args) -> List[Dict]:
-    """
-    takes a sql query string and returns the all rows of the results of the query
-
-    Args:
-        sql_query: the SQL query
-
-    Returns:
-        List[Dict]: All rows from the query
-    """
-    try:
-        pg_conn, pg_cur = get_pg_connection()
-
-        pg_cur.execute(sql_query, args)
-
-        result = pg_cur.fetchall()
-
-        pg_conn.commit()
-        pg_cur.close()
-        pg_conn.close()
-
-        return result
-    except Exception as e:
-        traceback.print_exc()
-        logger_service.log_error('DB ERROR', traceback.format_exc())
-        raise e
-
-
-def query(sql_query: str, *args):
-    """
-    takes a sql query string and returns the all rows of the results of the query
-
-    Args:
-        sql_query: the SQL query
+    To connect to the database, it is preferred to use the pattern:
+    with DBConn() as conn:
+        ...
+    It will ensure that the connection is taken from the connection pool return it to the pool
+    when done. The pool must be initialized first via `init_db_pool()`.
     """
 
-    try:
-        pg_conn, pg_cur = get_pg_connection()
+    def __init__(self):
+        if db_connection is None:
+            raise ValueError("The database connection pool has not been initialized by the application."
+                             " Use 'init_db_pool()' to initialise it.")
+        self.session = db_connection
 
-        pg_cur.execute(sql_query, args)
+    def __enter__(self):
+        return self.session
 
-        pg_conn.commit()
-        pg_cur.close()
-        pg_conn.close()
-    except Exception as e:
-        traceback.print_exc()
-        logger_service.log_error('DB ERROR', traceback.format_exc())
-        raise e
+    def __exit__(self, exc_type, exc_val, traceback):
+        try:
+            self.session.commit()
+        except:
+            self.session.rollback()
+            raise
 
 
-def join_for_in_clause(lst: List):
-    if len(lst) < 1:
-        return '-1'
-    return ','.join([str(item) for item in lst])
+class RabbitConn:
+    """
+    To connect to the database, it is preferred to use the pattern:
+    with DBConn() as conn:
+        ...
+    It will ensure that the connection is taken from the connection pool return it to the pool
+    when done. The pool must be initialized first via `init_db_pool()`.
+    """
+
+    def __init__(self):
+        if rabbit_channel is None:
+            raise ValueError("The rabbit connection has not been initialized by the application."
+                             " Use 'init_rabbit()' to initialise it.")
+        self.channel = rabbit_channel
+
+    def __enter__(self):
+        print('entering rabbit connection')
+        if self.channel:
+            init_rabbit()
+            self.channel = rabbit_channel
+        return self.channel
+    
+    def __exit__(self, exc_type, exc_val, traceback):
+        print('exiting rabbit connection')
+
+@atexit.register
+def close_rabbit():
+    global rabbit_connection
+    if rabbit_connection:
+        rabbit_connection.close()
+
+@atexit.register
+def close_db_pool():
+    """
+    If a connection pool is available, close all its connections and set it to None.
+    This method is always run at the exit of the application, to ensure that we free as much as possible
+    the database connections.
+    """
+    global db_connection
+    if db_connection is not None:
+        db_connection.rollback()
+        db_connection.close()
+        db_connection = None

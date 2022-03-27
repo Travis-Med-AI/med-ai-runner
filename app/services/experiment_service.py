@@ -1,11 +1,13 @@
 import traceback
 from typing import Dict, List
-from db.experiment_db import ExperimentDB
+from services import messaging_service
+from db import experiment_db
+
 
 from db.models import Experiment, Study
-from services import eval_service, logger_service, messaging_service
+from services import eval_service, logger_service
 
-experiment_db = ExperimentDB()
+
 
 def get_running_experiments():
     return experiment_db.get_running_experiments()
@@ -19,7 +21,7 @@ def finish_experiment(experiment: Experiment):
     """
     """
     experiment_db.set_experiment_complete(experiment.id)
-    messaging_service.send_notification(f'Completed experiment {experiment.name}', 'experiment_finished')
+    messaging_service.send_notification(f'Completed experiment {experiment.name}', 'experiment_finished', experiment.userId)
 
 
 def check_if_experiment_complete(experiment: Experiment) -> bool:
@@ -31,10 +33,10 @@ def check_if_experiment_complete(experiment: Experiment) -> bool:
 def fail_experiment(experiment: Experiment):
     """
     """
-    messaging_service.send_notification(f'Failed experiment {experiment.name}', 'experiment_failed')
+    messaging_service.send_notification(f'Failed experiment {experiment.name}', 'experiment_failed', experiment.userId)
     experiment_db.set_experiment_failed(experiment.id)
     traceback.print_exc()
-    logger_service.log_error(f'experiment {experiment.id} failed', traceback.format_exc())
+    messaging_service.log_error(f'experiment {experiment.id} failed', traceback.format_exc())
 
 
 def get_running_evals_by_exp(experimentId: int) -> List[Dict]:

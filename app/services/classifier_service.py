@@ -1,14 +1,11 @@
 import traceback
 from typing import List
+from services import messaging_service
 
-from db.classifier_db import ClassiferDB
-from db.eval_db import EvalDB
-from db.study_db import StudyDB
-from services import messaging_service, logger_service, orthanc_service
+from db import study_db
 
-study_db = StudyDB()
-eval_db = EvalDB()
-classifier_db = ClassiferDB()
+from services import logger_service, orthanc_service
+
 
 def classify_studies(study_metadata: List[orthanc_service.OrthancMetadata]) -> None:
     """
@@ -17,8 +14,8 @@ def classify_studies(study_metadata: List[orthanc_service.OrthancMetadata]) -> N
     """
     # TODO: seems like a lot of nested loops here...revisit and optimize
     for metadata in study_metadata:
-        study_db.save_study_type(metadata.orthanc_id, metadata.modality)
-        messaging_service.send_notification(f'Study {metadata.orthanc_id} ready', 'study_ready')
+        s = study_db.save_study_type(metadata.orthanc_id, metadata.modality)
+        messaging_service.send_notification(f'Study {metadata.orthanc_id} ready', 'study_ready', -1)
 
         # TODO: implement study classification
         # # evaluate the study using classifier model

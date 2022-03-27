@@ -2,27 +2,23 @@
 
 import json
 from typing import List, Dict
-from db.connection_manager import SessionManager
+from utils.db_utils import DBConn
 from db.models import Classifier, EvalJob, Experiment, Model, Study, StudyEvaluation
 
 from medaimodels import ModelOutput
 
 from services import logger_service, messaging_service
 
-class EvalDB(SessionManager):
 
-    def get_study_evals(self, eval_ids) -> List[StudyEvaluation]:
-        evals = self.session.query(StudyEvaluation).filter(StudyEvaluation.id.in_(eval_ids)).all()
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        return evals
+def get_study_evals(eval_ids) -> List[StudyEvaluation]:
+    with DBConn() as session:
+        evals = session.query(StudyEvaluation).filter(StudyEvaluation.id.in_(eval_ids)).all()
+    return evals
 
-    def add_stdout_to_eval(self, eval_ids: List[int], lines: List[str]):
+def add_stdout_to_eval(eval_ids: List[int], lines: List[str]):
+    with DBConn() as session:
         print('evalids are ', eval_ids)
-        studies = self.get_study_evals(eval_ids)
+        studies = get_study_evals(eval_ids)
 
         stdout = []
 
@@ -30,180 +26,152 @@ class EvalDB(SessionManager):
             stdout = studies[0].stdout
 
         stdout = stdout + lines
-        evaluations = self.session.query(StudyEvaluation).\
+        evaluations = session.query(StudyEvaluation).\
                     filter(StudyEvaluation.id.in_(eval_ids)).all()
         for e in evaluations:
             e.stdout = stdout
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
 
-    def get_default_model(self):
-        """
-        Gets the default classifier model
 
-        Returns:
-            Dict: the default classifier model
-        """
+def get_default_model():
+    """
+    Gets the default classifier model
 
-        model = self.session.query(Classifier).join(Model).scalar()
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        return model
+    Returns:
+        Dict: the default classifier model
+    """
+    with DBConn() as session:
+        model = session.query(Classifier).join(Model).scalar()
+    return model
 
-    def remove_orphan_evals(self):
-        """
-        removes evaluations that don't have an output
-        """
-        self.session.query(StudyEvaluation).filter(StudyEvaluation.modelOutput == None).\
-                                            delete()
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        print('cleaned orphan evals')
+def remove_orphan_evals():
+    """
+    removes evaluations that don't have an output
+    """
+    with DBConn() as session:
 
-    def get_failed_eval_ids(self, model_id: int) -> List[int]:
-        """
-        Get ids of all failed evaluations
+        session.query(StudyEvaluation).filter(StudyEvaluation.modelOutput == None).\
+                                        delete()
+    print('cleaned orphan evals')
 
-        Args:
-            model_id (int): the db id of the model
+def get_failed_eval_ids(model_id: int) -> List[int]:
+    """
+    Get ids of all failed evaluations
 
-        Returns:
-            List[int]: a list of the failed evals' ids
-        """
+    Args:
+        model_id (int): the db id of the model
 
-        evals: List[StudyEvaluation] = self.session.query(StudyEvaluation).\
-                                                    filter(StudyEvaluation.status == 'FAILED').\
-                                                    filter(StudyEvaluation.modelId == model_id).\
-                                                    all()
+    Returns:
+        List[int]: a list of the failed evals' ids
+    """
 
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        return [e.id for e in evals]
+    with DBConn() as session:
 
-    def get_failed_eval_ids_by_exp(self, experimentId: int) -> List[int]:
-        """
-        Get ids of all failed evaluations
+        evals: List[StudyEvaluation] = session.query(StudyEvaluation).\
+                                                filter(StudyEvaluation.status == 'FAILED').\
+                                                filter(StudyEvaluation.modelId == model_id).\
+                                                all()
+    return [e.id for e in evals]
 
-        Args:
-            model_id (int): the db id of the model
+def get_failed_eval_ids_by_exp(experimentId: int) -> List[int]:
+    """
+    Get ids of all failed evaluations
 
-        Returns:
-            List[int]: a list of the failed evals' ids
-        """
+    Args:
+        model_id (int): the db id of the model
 
-        # sql = f'''
-        # SELECT * FROM study_evaluation se
-        # INNER JOIN experiment_studies_study es on es."studyId" = se."studyId"
-        # WHERE es."experimentId" = {experimentId} and se."status"='FAILED'
-        # '''
+    Returns:
+        List[int]: a list of the failed evals' ids
+    """
 
-        evals: List[StudyEvaluation] = self.session.query(StudyEvaluation).\
-                                                    join(Study).\
-                                                    filter(Experiment.study.any(id=Study.id)).\
-                                                    filter(StudyEvaluation.status == 'FAILED').\
-                                                    filter(Experiment.id == experimentId).\
-                                                    all()
+    # sql = f'''
+    # SELECT * FROM study_evaluation se
+    # INNER JOIN experiment_studies_study es on es."studyId" = se."studyId"
+    # WHERE es."experimentId" = {experimentId} and se."status"='FAILED'
+    # '''
 
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
+    with DBConn() as session:
 
-        return [e.id for e in evals]
+        evals: List[StudyEvaluation] = session.query(StudyEvaluation).\
+                                                join(Study).\
+                                                filter(Experiment.study.any(id=Study.id)).\
+                                                filter(StudyEvaluation.status == 'FAILED').\
+                                                filter(Experiment.id == experimentId).\
+                                                all()
+    return [e.id for e in evals]
 
-    def fail_eval(self, eval_id: int):
-        """
-        Updates study evalutation status to failed
+def fail_eval(eval_id: int):
+    """
+    Updates study evalutation status to failed
 
-        Args:
-            eval_id (int): the db id of the study evaluation
-        """
+    Args:
+        eval_id (int): the db id of the study evaluation
+    """
 
-        # sql = f'''
-        # UPDATE study_evaluation 
-        # SET status='FAILED'
-        # WHERE id={eval_id}
-        # '''
-        evaulation = self.session.query(StudyEvaluation).filter(StudyEvaluation.id == eval_id).\
+    # sql = f'''
+    # UPDATE study_evaluation 
+    # SET status='FAILED'
+    # WHERE id={eval_id}
+    # '''
+    with DBConn() as session:
+
+        evaulation = session.query(StudyEvaluation).filter(StudyEvaluation.id == eval_id).\
                                             scalar()
         evaulation.status = 'FAILED'
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
+    return evaulation
 
-    def get_eval_jobs(self) -> List[Dict]:
-        """
-        Selects all eval jobs that are currently set to running and are not expired
+def get_eval_jobs() -> List[Dict]:
+    """
+    Selects all eval jobs that are currently set to running and are not expired
 
-        Returns:
-            List: all current eval jobs ordered by last run
-        """
+    Returns:
+        List: all current eval jobs ordered by last run
+    """
 
-        # # selects all eval jobs that are currently set to running
-        # sql = '''
-        # SELECT * FROM eval_job ej
-        # WHERE "running"=true
-        # ORDER BY "lastRun"
-        # '''
+    # # selects all eval jobs that are currently set to running
+    # sql = '''
+    # SELECT * FROM eval_job ej
+    # WHERE "running"=true
+    # ORDER BY "lastRun"
+    # '''
 
-        eval_jobs = self.session.query(EvalJob).filter(EvalJob.running==True).\
-                                           order_by(EvalJob.lastRun).all()
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        return eval_jobs
+    with DBConn() as session:
 
-    def update_eval_status_and_save(self, output: ModelOutput, eval_id: int):
-        """
-        Updates study evalutation status to completed and saves the model output
+        eval_jobs = session.query(EvalJob).filter(EvalJob.running==True).\
+                                        order_by(EvalJob.lastRun).all()
+    return eval_jobs
 
-        Args:
-            output (ModelOutput): the output of the model
-            eval_id (int): the id of the eval to be update
-        """
-        ### set eval as completed and save model output as json
-        # sql = f'''
-        # UPDATE study_evaluation 
-        # SET status='COMPLETED', "modelOutput"=('{json.dumps(output)}') {update_sql_string}
-        # WHERE id={eval_id}
-        # '''
-        evaluation = self.session.query(StudyEvaluation).filter(StudyEvaluation.id == eval_id).\
+def update_eval_status_and_save(output: ModelOutput, eval_id: int) -> StudyEvaluation:
+    """
+    Updates study evalutation status to completed and saves the model output
+
+    Args:
+        output (ModelOutput): the output of the model
+        eval_id (int): the id of the eval to be update
+    """
+    ### set eval as completed and save model output as json
+    # sql = f'''
+    # UPDATE study_evaluation 
+    # SET status='COMPLETED', "modelOutput"=('{json.dumps(output)}') {update_sql_string}
+    # WHERE id={eval_id}
+    # '''
+    with DBConn() as session:
+
+        evaluation = session.query(StudyEvaluation).filter(StudyEvaluation.id == eval_id).\
                                             scalar()
         evaluation.status = 'COMPLETED'
         evaluation.modelOutput = output
         evaluation.imgOutputPath = output['image'] if output and output['image'] else None
+    return evaluation
 
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
+def restart_failed_evals(eval_ids: List[int]):
+    """
+    sets a failed evaluation to status 'RUNNING' to restart it
 
-    def restart_failed_evals(self, eval_ids: List[int]):
-        """
-        sets a failed evaluation to status 'RUNNING' to restart it
+    Args:
+        eval_ids (List[int]): a list of the ids of evals to be restarted
+    """
 
-        Args:
-            eval_ids (List[int]): a list of the ids of evals to be restarted
-        """
-
+    with DBConn() as session:
         if len(eval_ids) == 0:
             return
 
@@ -212,31 +180,28 @@ class EvalDB(SessionManager):
         # SET status='RUNNING'
         # WHERE id in ({ids})
         # '''
-        evaluation = self.session.query(StudyEvaluation).filter(StudyEvaluation.id.in_(eval_ids)).scalar()
+        evaluation = session.query(StudyEvaluation).filter(StudyEvaluation.id.in_(eval_ids)).scalar()
 
         evaluation.status = 'RUNNING'
-        try:
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
 
-    def start_study_evaluations(self, studies: List[Study], model_id: int) -> List[int]:
-        """
-        inserts entries into the study_evaluation table and sets them to 'RUNNING'
 
-        Args:
-            studies (List[object]): a list of the primary keys of study db entries to evaluate
-            model (int): the id of the model to use in evalution
+def start_study_evaluations(studies: List[Study], model_id: int) -> List[int]:
+    """
+    inserts entries into the study_evaluation table and sets them to 'RUNNING'
 
-        Returns:
-            List[int]: a list of ids of the db entries that were inserted
-        """
+    Args:
+        studies (List[object]): a list of the primary keys of study db entries to evaluate
+        model (int): the id of the model to use in evalution
 
+    Returns:
+        List[int]: a list of ids of the db entries that were inserted
+    """
+
+    with DBConn() as session:             
         logger_service.log(f'starting study evaluations for {studies}')
 
         for study in studies:
-            messaging_service.send_notification(f"Started evaluation of study {study.orthancStudyId}", 'eval_started')
+            messaging_service.send_notification(f"Started evaluation of study {study.orthancStudyId}", 'eval_started', -1)
 
         if len(studies) == 0:
             return []
@@ -247,18 +212,16 @@ class EvalDB(SessionManager):
         # VALUES {reduced}
         # RETURNING id;
         # '''
+        model:Model = session.query(Model).filter(Model.id==model_id).scalar()
         evals_to_add = [StudyEvaluation(studyId=study.id,
                                         modelOutput=None,
                                         status='RUNNING',
-                                        modelId=model_id) for study in studies]
-        try:                  
-            self.session.add_all(evals_to_add)
-            study_ids = [study.id for study in studies]
-            evals: List[StudyEvaluation] = self.session.query(StudyEvaluation).\
-                                                        filter(StudyEvaluation.studyId.in_(study_ids)).\
-                                                        all()
-            self.session.commit()
-        except:
-            self.session.rollback()
-            raise
-        return [e.id for e in evals]
+                                        modelId=model_id,
+                                        userId=model.userId) for study in studies]
+        session.add_all(evals_to_add)
+        study_ids = [study.id for study in studies]
+        evals: List[StudyEvaluation] = session.query(StudyEvaluation).\
+                                                    filter(StudyEvaluation.studyId.in_(study_ids)).\
+                                                    all()
+
+    return [e.id for e in evals]

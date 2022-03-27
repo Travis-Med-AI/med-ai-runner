@@ -1,1 +1,1 @@
-sqlacodegen --outfile app/db/models.py postgresql://test:test@localhost:5432/ai
+sqlacodegen --outfile app/db/models.py postgresql://test:test@192.168.49.2:5432/ai

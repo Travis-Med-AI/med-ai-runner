@@ -10,6 +10,7 @@
     "AuthenticationEnabled": false,
     "DicomAet": "AI-INTERNAL",
     "DicomServerEnabled" : true,
+    "DicomModalitiesInDatabase" : true,
     "PostgreSQL": {
         "EnableIndex": true,
         "EnableStorage": false, 

@@ -26,32 +26,6 @@ class Migration(Base):
     name = Column(String, nullable=False)
 
 
-class Model(Base):
-    __tablename__ = 'model'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('model_id_seq'::regclass)"))
-    image = Column(String, nullable=False, unique=True)
-    displayName = Column(String, nullable=False, unique=True)
-    input = Column(String, nullable=False)
-    modality = Column(String, nullable=False)
-    inputType = Column(String)
-    output = Column(String, nullable=False)
-    outputKeys = Column(JSONB(astext_type=Text()))
-    hasImageOutput = Column(Boolean, nullable=False)
-    pulled = Column(Boolean, nullable=False, server_default=text("false"))
-    failedPull = Column(Boolean, nullable=False, server_default=text("false"))
-    concurrency = Column(Integer, nullable=False, server_default=text("1"))
-
-
-class Notification(Base):
-    __tablename__ = 'notification'
-
-    id = Column(Integer, primary_key=True, server_default=text("nextval('notification_id_seq'::regclass)"))
-    type = Column(String, nullable=False)
-    message = Column(String, nullable=False)
-    read = Column(Boolean, nullable=False)
-
-
 class Role(Base):
     __tablename__ = 'role'
 
@@ -86,9 +60,47 @@ class User(Base):
     email = Column(String, nullable=False)
     firstName = Column(String, nullable=False)
     lastName = Column(String, nullable=False)
-    age = Column(Integer, nullable=False)
     password = Column(String, nullable=False)
     salt = Column(String, nullable=False)
+
+
+class Model(Base):
+    __tablename__ = 'model'
+
+    id = Column(Integer, primary_key=True, server_default=text("nextval('model_id_seq'::regclass)"))
+    image = Column(String, nullable=False, unique=True)
+    displayName = Column(String, nullable=False, unique=True)
+    input = Column(String, nullable=False)
+    modality = Column(String, nullable=False)
+    inputType = Column(String)
+    output = Column(String, nullable=False)
+    outputKeys = Column(JSONB(astext_type=Text()))
+    hasImageOutput = Column(Boolean, nullable=False)
+    pulled = Column(Boolean, nullable=False, server_default=text("false"))
+    failedPull = Column(Boolean, nullable=False, server_default=text("false"))
+    concurrency = Column(Integer, nullable=False, server_default=text("1"))
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
+
+    user = relationship('User')
+
+
+class Notification(Base):
+    __tablename__ = 'notification'
+
+    id = Column(Integer, primary_key=True, server_default=text("nextval('notification_id_seq'::regclass)"))
+    type = Column(String, nullable=False)
+    message = Column(String, nullable=False)
+    read = Column(Boolean, nullable=False)
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
+
+    user = relationship('User')
+
+
+t_user_roles_role = Table(
+    'user_roles_role', metadata,
+    Column('userId', ForeignKey('user.id', ondelete='CASCADE'), primary_key=True, nullable=False, index=True),
+    Column('roleId', ForeignKey('role.id', ondelete='CASCADE'), primary_key=True, nullable=False, index=True)
+)
 
 
 class Classifier(Base):
@@ -98,8 +110,10 @@ class Classifier(Base):
     modality = Column(String, nullable=False, unique=True)
     lastRun = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     modelId = Column(ForeignKey('model.id'))
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model')
+    user = relationship('User')
 
 
 class EvalJob(Base):
@@ -112,8 +126,10 @@ class EvalJob(Base):
     replicas = Column(Integer, nullable=False, server_default=text("0"))
     lastRun = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model', uselist=False)
+    user = relationship('User')
 
 
 class Experiment(Base):
@@ -126,8 +142,10 @@ class Experiment(Base):
     createdDate = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     lastUpdate = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     modelId = Column(ForeignKey('model.id'))
+    userId = Column(ForeignKey('user.id'))
 
     model = relationship('Model')
+    user = relationship('User')
     study = relationship('Study', secondary='experiment_studies_study')
 
 
@@ -136,13 +154,15 @@ class ModelTrain(Base):
 
     id = Column(Integer, primary_key=True, server_default=text("nextval('model_train_id_seq'::regclass)"))
     failed = Column(Boolean, nullable=False, server_default=text("false"))
-    modelId = Column(ForeignKey('model.id', ondelete='CASCADE'))
+    modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
     training = Column(Boolean, nullable=False, server_default=text("false"))
     modelOutput = Column(JSONB(astext_type=Text()))
     studyId = Column(ForeignKey('study.id', ondelete='CASCADE'), unique=True)
 
-    model = relationship('Model')
+    model = relationship('Model', uselist=False)
     study = relationship('Study', uselist=False)
+    user = relationship('User')
 
 
 class StudyEvaluation(Base):
@@ -159,9 +179,11 @@ class StudyEvaluation(Base):
     lastUpdate = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     studyId = Column(ForeignKey('study.id'))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'))
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model')
     study = relationship('Study')
+    user = relationship('User')
 
 
 class StudyLabel(Base):
@@ -170,17 +192,12 @@ class StudyLabel(Base):
     id = Column(Integer, primary_key=True, server_default=text("nextval('study_label_id_seq'::regclass)"))
     label = Column(JSONB(astext_type=Text()), nullable=False)
     studyId = Column(ForeignKey('study.id'))
-    modelId = Column(ForeignKey('model.id'))
+    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
+    modelId = Column(ForeignKey('model.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model')
     study = relationship('Study')
-
-
-t_user_roles_role = Table(
-    'user_roles_role', metadata,
-    Column('userId', ForeignKey('user.id', ondelete='CASCADE'), primary_key=True, nullable=False, index=True),
-    Column('roleId', ForeignKey('role.id', ondelete='CASCADE'), primary_key=True, nullable=False, index=True)
-)
+    user = relationship('User')
 
 
 t_experiment_studies_study = Table(

@@ -4,31 +4,41 @@ import traceback
 import uuid
 from typing import List
 from collections import defaultdict
+from utils.db_utils import close_db_pool, close_rabbit, init_db, init_rabbit
+from services import messaging_service
 from celery import Celery
 import time
+from celery.signals import worker_process_init, worker_process_shutdown
+
 
 import settings
-from services import logger_service, classifier_service, eval_service, experiment_service, messaging_service, model_service, orthanc_service, study_service
-from utils import utils as u
-import multiprocessing
+from services import logger_service, classifier_service, eval_service, experiment_service, model_service, orthanc_service, study_service
+from utils import utils as uP
 
 runner = Celery('runner')
 runner.config_from_object(settings.Settings())
 runner.control.purge()
-eval_service.remove_orphan_evals()
-study_service.remove_orphan_studies()
-model_service.turn_off_all_models()
-messaging_service.start_result_queue()
-orthanc_service.delete_all_downloaded()
-# study_service.refresh_orthanc_data()
+# eval_service.remove_orphan_evals()
+# study_service.remove_orphan_studies()
+# model_service.turn_off_all_models()
+# messaging_service.start_result_queue()
+
+@worker_process_init.connect
+def init_worker(**kwargs):
+    init_db()
+    init_rabbit()
+    print('starting worker')
+
+@worker_process_shutdown.connect
+def shutdown_worker(**kwargs):
+    close_db_pool()
+    close_rabbit()
 
 @runner.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     """set up celery beat tasks"""
 
     print(runner.tasks.keys())
-
-
 
 @runner.task
 def run_jobs():
@@ -81,11 +91,12 @@ def run_experiments(batch_size: int):
     """
     Monitors db for active experiments and runs them
     """
-    print('running experiments')
+    print(f'running experiments with batch size of {batch_size}')
 
     # get experiments
     experiments = experiment_service.get_running_experiments()
-
+    
+    print(f'found {len(experiments)} experiments')
     # run experiments
     for experiment in experiments:
         # check if the experiment is done and update as finished
@@ -100,8 +111,10 @@ def run_experiments(batch_size: int):
         # create batch of studies and check if there are already running studies
         batch = studies[:batch_size]
         running_studies = experiment_service.get_running_evals_by_exp(experiment.id)
+        print(running_studies)
+        print(batch)
         # this makes it so there are only 5 evaluations
-        if len(batch) > 0 and len(running_studies) < 2:
+        if len(batch) > 0 and len(running_studies) < 5:
             experiment_service.run_experiment(batch, model, experiment)
     print('finished experiment task')
 

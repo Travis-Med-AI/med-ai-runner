@@ -6,13 +6,21 @@
         "/usr/local/share/orthanc/plugins/libOrthancWebViewer.so"
       ],
     "StorageDirectory" : "/var/lib/orthanc/db",
+
+    "DicomServerEnabled" : true,
+
+
+    "DicomAet" : "MEDAI",
+
     "RemoteAccessAllowed" : true,
-    "AuthenticationEnabled": true,
-    "DicomAet": "AI",
+    "DicomCheckCalledAet" : false,
+
+    "DicomPort" : 4242,
     "RegisteredUsers" : {
         "test" : "test123"
     },
-    "DicomServerEnabled" : true,
+    "UnknownSopClassAccepted" : false,
+    "DicomAlwaysAllowStore" : true,
     "PostgreSQL": {
         "EnableIndex": true,
         "EnableStorage": false, 
