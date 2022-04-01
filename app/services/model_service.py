@@ -86,7 +86,7 @@ def create_quickstart_deployment(job, image, client_instance):
         image=image,
         env=environment,
         volume_mounts=volume_mounts,
-        image_pull_policy="Never",
+        image_pull_policy="Always",
     )
 
     print('container made')
