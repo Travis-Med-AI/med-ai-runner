@@ -95,6 +95,8 @@ def save_patient_metadata(metadata: OrthancMetadata):
         study.seriesUid = metadata.series_uid, 
         study.accession = metadata.accession,
         study.description = metadata.description
+        study.seriesMetadata = json.dumps(metadata.series_metadta)
+        study.studyMetadata = json.dumps(metadata.study_metadta)
 
 
                             

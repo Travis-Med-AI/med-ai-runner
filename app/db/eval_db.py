@@ -8,7 +8,7 @@ from db.models import Classifier, EvalJob, Experiment, Model, Study, StudyEvalua
 from medaimodels import ModelOutput
 
 from services import logger_service, messaging_service
-
+import time
 
 def get_study_evals(eval_ids) -> List[StudyEvaluation]:
     with DBConn() as session:
@@ -136,8 +136,7 @@ def get_eval_jobs() -> List[Dict]:
 
     with DBConn() as session:
 
-        eval_jobs = session.query(EvalJob).filter(EvalJob.running==True).\
-                                        order_by(EvalJob.lastRun).all()
+        eval_jobs = session.query(EvalJob).filter(EvalJob.running==True).all()
     return eval_jobs
 
 def update_eval_status_and_save(output: ModelOutput, eval_id: int) -> StudyEvaluation:
@@ -160,6 +159,7 @@ def update_eval_status_and_save(output: ModelOutput, eval_id: int) -> StudyEvalu
                                             scalar()
         evaluation.status = 'COMPLETED'
         evaluation.modelOutput = output
+        evaluation.finishTime = int(time.time())
         evaluation.imgOutputPath = output['image'] if output and output['image'] else None
     return evaluation
 
@@ -182,12 +182,12 @@ def restart_failed_evals(eval_ids: List[int]):
         # '''
         evaluation = session.query(StudyEvaluation).filter(StudyEvaluation.id.in_(eval_ids)).scalar()
 
-        evaluation.status = 'RUNNING'
+        evaluation.status = 'QUEUED'
 
 
 def start_study_evaluations(studies: List[Study], model_id: int) -> List[int]:
     """
-    inserts entries into the study_evaluation table and sets them to 'RUNNING'
+    inserts entries into the study_evaluation table and sets them to 'QUEUED'
 
     Args:
         studies (List[object]): a list of the primary keys of study db entries to evaluate
@@ -215,9 +215,8 @@ def start_study_evaluations(studies: List[Study], model_id: int) -> List[int]:
         model:Model = session.query(Model).filter(Model.id==model_id).scalar()
         evals_to_add = [StudyEvaluation(studyId=study.id,
                                         modelOutput=None,
-                                        status='RUNNING',
-                                        modelId=model_id,
-                                        userId=model.userId) for study in studies]
+                                        status='QUEUED',
+                                        modelId=model_id) for study in studies]
         session.add_all(evals_to_add)
         study_ids = [study.id for study in studies]
         evals: List[StudyEvaluation] = session.query(StudyEvaluation).\
@@ -225,3 +224,11 @@ def start_study_evaluations(studies: List[Study], model_id: int) -> List[int]:
                                                     all()
 
     return [e.id for e in evals]
+
+def set_eval_running(eval_id: int):
+    with DBConn() as session:
+        evaluation = session.query(StudyEvaluation).filter(StudyEvaluation.id == eval_id).\
+                                            scalar()
+        evaluation.status = 'RUNNING'
+        evaluation.startTime = int(time.time()) 
+    return evaluation

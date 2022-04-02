@@ -22,15 +22,21 @@ def on_eval_result(ch, method, properties, body):
         result = message['output']
         msg_type = message['type']
         print('recieved result: ', result)
+        if msg_type == 'START':
+            messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result', -1)
+
+            eval_service.set_eval_as_running(eval_id)
+            return
         if msg_type == 'FAIL' or type(result) is not dict:
             eval_service.fail_dicom_eval(eval_id)
+            return
         # write result to db
         e = eval_service.write_eval_results(result, eval_id)
 
         study = study_service.get_study_by_eval_id(eval_id)
         # orthanc_service.delete_study_dicom(study['orthancStudyId'])
         # send notification to frontend
-        messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result', e.userId)
+        messaging_service.send_notification(f'Finished evaluation {eval_id}', 'new_result', -1)
     except:
         eval_service.fail_dicom_eval(eval_id)
         print('failed to get result', body)

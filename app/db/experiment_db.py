@@ -38,7 +38,7 @@ def get_running_studies_for_experiment(experiment_id):
         studies = session.query(Study).\
                             filter(Study.id.in_(experiment_study_ids)).\
                             join(StudyEvaluation).\
-                            filter(StudyEvaluation.status == 'RUNNING').distinct().all()
+                            filter(StudyEvaluation.status == 'QUEUED').distinct().all()
 
     return studies
 

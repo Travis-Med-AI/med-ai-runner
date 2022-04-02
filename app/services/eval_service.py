@@ -1,3 +1,4 @@
+from tkinter import E
 import uuid
 import traceback
 from typing import List
@@ -50,7 +51,7 @@ def fail_evals(model_id: int, eval_ids: List[int]):
 
     for eval_id in eval_ids:
         e: StudyEvaluation = eval_db.fail_eval(eval_id)
-        messaging_service.send_notification(error_message, 'eval_failed', e.userId)
+        messaging_service.send_notification(error_message, 'eval_failed', -1)
 
 def fail_model(model_id: int):
     # TODO: this doesn't seem like it does anything
@@ -106,6 +107,7 @@ def evaluate(model: Model,
         :rtype: List[ModelOutput]
         A list of the outputs of the evaluating model
     """
+
     job = model_db.get_job_by_model(model.id)
     if(job.replicas > 0):
         print('running with quickstart')
@@ -152,7 +154,7 @@ def fail_dicom_eval(eval_id):
     logger_service.log_error(error_message, traceback.format_exc())
     # update eval status to FAILED
     e:StudyEvaluation = eval_db.fail_eval(eval_id)
-    messaging_service.send_notification(error_message, 'eval_failed', e.userId)
+    messaging_service.send_notification(error_message, 'eval_failed', -1)
 
 def check_gpu():
     try:
@@ -209,3 +211,6 @@ def start_k8_job(image, result_queue, filenames, uuid, ids):
         namespace='default')
     
     return api_response
+
+def set_eval_as_running(eval_id: int):
+    eval_db.set_eval_running(eval_id)

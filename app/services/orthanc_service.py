@@ -5,7 +5,7 @@ import shutil
 import json
 import traceback
 from zipfile import ZipFile
-from typing import List, NamedTuple
+from typing import Dict, List, NamedTuple
 import nvidia_smi
 import glob
 import requests
@@ -24,6 +24,8 @@ class OrthancMetadata(NamedTuple):
     accession:str
     description: str
     series_instances: List
+    series_metadta: Dict
+    study_metadta: Dict
 
 def download_metadata(orthanc_id: str):
     # Get orthanc url from setting
@@ -55,7 +57,10 @@ def download_metadata(orthanc_id: str):
         series_uid=series_uid,
         accession=accession,
         description=description,
-        series_instances=instances
+        series_instances=instances,
+        series_metadta=main_series_tags,
+        study_metadta=main_study_metadata,
+
     )
 
 

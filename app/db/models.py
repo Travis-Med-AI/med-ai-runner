@@ -48,6 +48,8 @@ class Study(Base):
     type = Column(Text)
     modality = Column(String)
     description = Column(String)
+    seriesMetadata = Column(JSONB(astext_type=Text()))
+    studyMetadata = Column(JSONB(astext_type=Text()))
     failed = Column(Boolean, nullable=False, server_default=text("false"))
     dateAdded = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     lastUpdate = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
@@ -79,9 +81,7 @@ class Model(Base):
     pulled = Column(Boolean, nullable=False, server_default=text("false"))
     failedPull = Column(Boolean, nullable=False, server_default=text("false"))
     concurrency = Column(Integer, nullable=False, server_default=text("1"))
-    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
 
-    user = relationship('User')
 
 
 class Notification(Base):
@@ -108,12 +108,9 @@ class Classifier(Base):
 
     id = Column(Integer, primary_key=True, server_default=text("nextval('classifier_id_seq'::regclass)"))
     modality = Column(String, nullable=False, unique=True)
-    lastRun = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     modelId = Column(ForeignKey('model.id'))
-    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model')
-    user = relationship('User')
 
 
 class EvalJob(Base):
@@ -124,12 +121,9 @@ class EvalJob(Base):
     running = Column(Boolean, nullable=False)
     cpu = Column(Boolean, nullable=False, server_default=text("false"))
     replicas = Column(Integer, nullable=False, server_default=text("0"))
-    lastRun = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
-    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model', uselist=False)
-    user = relationship('User')
 
 
 class Experiment(Base):
@@ -155,14 +149,12 @@ class ModelTrain(Base):
     id = Column(Integer, primary_key=True, server_default=text("nextval('model_train_id_seq'::regclass)"))
     failed = Column(Boolean, nullable=False, server_default=text("false"))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
-    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
     training = Column(Boolean, nullable=False, server_default=text("false"))
     modelOutput = Column(JSONB(astext_type=Text()))
     studyId = Column(ForeignKey('study.id', ondelete='CASCADE'), unique=True)
 
     model = relationship('Model', uselist=False)
     study = relationship('Study', uselist=False)
-    user = relationship('User')
 
 
 class StudyEvaluation(Base):
@@ -179,11 +171,11 @@ class StudyEvaluation(Base):
     lastUpdate = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
     studyId = Column(ForeignKey('study.id'))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'))
-    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
+    finishTime = Column(Integer)
+    startTime = Column(Integer)
 
     model = relationship('Model')
     study = relationship('Study')
-    user = relationship('User')
 
 
 class StudyLabel(Base):
@@ -192,12 +184,10 @@ class StudyLabel(Base):
     id = Column(Integer, primary_key=True, server_default=text("nextval('study_label_id_seq'::regclass)"))
     label = Column(JSONB(astext_type=Text()), nullable=False)
     studyId = Column(ForeignKey('study.id'))
-    userId = Column(ForeignKey('user.id', ondelete='CASCADE', onupdate='CASCADE'))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE', onupdate='CASCADE'))
 
     model = relationship('Model')
     study = relationship('Study')
-    user = relationship('User')
 
 
 t_experiment_studies_study = Table(
