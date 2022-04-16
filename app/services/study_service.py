@@ -53,3 +53,6 @@ def remove_orphan_studies():
 
 def get_study_by_eval_id(eval_id):
     return study_db.get_study_by_eval_id(eval_id)
+
+def get_old_studies(time: int)->List[str]:
+    return study_db.get_old_studies(time)

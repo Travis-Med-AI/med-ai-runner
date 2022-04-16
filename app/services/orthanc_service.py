@@ -6,9 +6,11 @@ import json
 import traceback
 from zipfile import ZipFile
 from typing import Dict, List, NamedTuple
+from db import study_db
 import nvidia_smi
 import glob
 import requests
+from requests import Response
 import redis
 import docker
 from medaimodels import ModelOutput
@@ -26,6 +28,7 @@ class OrthancMetadata(NamedTuple):
     series_instances: List
     series_metadta: Dict
     study_metadta: Dict
+    parent_orthanc_id: str
 
 def download_metadata(orthanc_id: str):
     # Get orthanc url from setting
@@ -60,8 +63,8 @@ def download_metadata(orthanc_id: str):
         series_instances=instances,
         series_metadta=main_series_tags,
         study_metadta=main_study_metadata,
-
-    )
+        parent_orthanc_id=study_id
+    )   
 
 
 def save_series_preview(metadata: OrthancMetadata):
@@ -166,4 +169,16 @@ def delete_all_downloaded():
         except:
             traceback.print_exc()
             print("Error while deleting file : ", filePath)
+
+def delete_from_orthanc(orthanc_ids: List[str]):
+    orthanc_url = settings_service.get_orthanc_url()
+    bulk_delete_url = f'{orthanc_url}/tools/bulk-delete'
+    body = {"Resources": orthanc_ids}
+    print('posting with body ', json.dumps(body))
+    res: Response = requests.post(bulk_delete_url, data=json.dumps(body))
+    print(res)
+    if res.status_code == 200:
+        for o in orthanc_ids:
+            study_db.save_deleted_orthanc(o)
+
 

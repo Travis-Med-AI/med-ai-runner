@@ -41,6 +41,7 @@ class Study(Base):
 
     id = Column(Integer, primary_key=True, server_default=text("nextval('study_id_seq'::regclass)"))
     orthancStudyId = Column(String, nullable=False, unique=True)
+    orthancParentId = Column(String)
     patientId = Column(String)
     studyUid = Column(String)
     accession = Column(String)
@@ -51,7 +52,8 @@ class Study(Base):
     seriesMetadata = Column(JSONB(astext_type=Text()))
     studyMetadata = Column(JSONB(astext_type=Text()))
     failed = Column(Boolean, nullable=False, server_default=text("false"))
-    dateAdded = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
+    deletedFromOrthanc = Column(Boolean, nullable=False, server_default=text("false"))
+    dateAdded = Column(BigInteger, nullable=False)
     lastUpdate = Column(TIMESTAMP(precision=3), nullable=False, server_default=text("('now'::text)::timestamp(3) with time zone"))
 
 
@@ -120,6 +122,7 @@ class EvalJob(Base):
     batchSize = Column(Integer, nullable=False, server_default=text("1"))
     running = Column(Boolean, nullable=False)
     cpu = Column(Boolean, nullable=False, server_default=text("false"))
+    deleteOrthanc = Column(Boolean, nullable=False, server_default=text("false"))
     replicas = Column(Integer, nullable=False, server_default=text("0"))
     modelId = Column(ForeignKey('model.id', ondelete='CASCADE'), unique=True)
 

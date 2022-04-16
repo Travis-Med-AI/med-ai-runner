@@ -4,10 +4,11 @@ import json
 from typing import List, Dict
 from utils.db_utils import DBConn
 from services.orthanc_service import OrthancMetadata
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 
 from services import logger_service
 from db.models import Model, Study, StudyEvaluation
+import time
 
 def get_study_by_orthanc_id(orthanc_id: str) -> Study:
     """
@@ -95,8 +96,9 @@ def save_patient_metadata(metadata: OrthancMetadata):
         study.seriesUid = metadata.series_uid, 
         study.accession = metadata.accession,
         study.description = metadata.description
-        study.seriesMetadata = json.dumps(metadata.series_metadta)
-        study.studyMetadata = json.dumps(metadata.study_metadta)
+        # study.seriesMetadata = json.dumps(metadata.series_metadta)
+        # study.studyMetadata = json.dumps(metadata.study_metadta)
+        study.orthancParentId = metadata.parent_orthanc_id
 
 
                             
@@ -118,7 +120,23 @@ def save_study_type(orthanc_id: str, study_type: str) -> Dict:
         study.type = study_type
     return study
 
+def save_deleted_orthanc(orthanc_parent_id: str) -> Dict:
+    """
+    Saves a study to the database with it accompanying type
 
+    Args:
+        orthanc_id (str): the study ID from orthanc
+        study_type (str): the type of the study (e.g. Frontal_CXR)
+
+    Returns:
+        Dict: the inserted study
+    """
+    with DBConn() as session:
+
+        studies = session.query(Study).filter(Study.orthancParentId==orthanc_parent_id).all()
+        for s in studies:
+            s.deletedFromOrthanc = True
+    return s
 
 def insert_studies(orthanc_ids: list) -> Dict:
     """
@@ -134,7 +152,7 @@ def insert_studies(orthanc_ids: list) -> Dict:
     with DBConn() as session:
         if len(orthanc_ids) == 0:
             return None
-        studies = [Study(orthancStudyId = orthanc_id) for orthanc_id in orthanc_ids]
+        studies = [Study(orthancStudyId = orthanc_id, dateAdded= time.time()) for orthanc_id in orthanc_ids]
 
         session.add_all(studies)
         studies = session.query(Study).\
@@ -151,3 +169,11 @@ def get_study_by_eval_id(eval_id):
                     filter(StudyEvaluation.id==eval_id).scalar()
 
     return study
+
+def get_old_studies(time: int)-> List[str]:
+    with DBConn() as session:
+        studies = session.query(Study).\
+                            filter(Study.dateAdded < time).\
+                            filter(Study.deletedFromOrthanc == False).\
+                            all()
+    return [s.orthancParentId for s in studies]

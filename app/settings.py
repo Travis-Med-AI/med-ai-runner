@@ -43,4 +43,9 @@ class Settings():
             'schedule': 15,  # every 15 sec for test
             'options': {'queue' : 'celery'},  # options are mapped to apply_async options
         },
+        'delete_old_orthanc': {
+            'task': 'runner.purge_orthanc',
+            'schedule': 15,  # every 15 sec for test
+            'options': {'queue' : 'celery'},  # options are mapped to apply_async options
+        },
     }

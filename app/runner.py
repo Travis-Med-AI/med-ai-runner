@@ -197,3 +197,19 @@ def quickstart_models():
         print('quickstart failed')
         traceback.print_exc()
     
+@runner.task
+def purge_orthanc():
+    """
+    purges old studies from orthanc
+    """
+    try:
+        print('purging orthanc studies')
+        # getting unstarted models
+        one_day_ago = time.time() - (24 * 60 * 60 * 1000)
+        old_study_ids = study_service.get_old_studies(one_day_ago)
+        print('found the following orthanc studies to delete', old_study_ids)
+        orthanc_service.delete_from_orthanc(old_study_ids)
+
+    except Exception as e:
+        print('purge orthanc failed')
+        traceback.print_exc()
